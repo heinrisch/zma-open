@@ -9,7 +9,10 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": ["onLanguage:markdown"],
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onCommand:zma.introduction"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "configuration": [
@@ -106,7 +109,11 @@
       {
         "command": "zma.runCliAction",
         "title": "ZMA: Run Cli Action"
-    }
+      },
+      {
+        "command": "zma.introduction",
+        "title": "ZMA: Introduction"
+      }
     ],
     "menus": {
       "view/item/context": [

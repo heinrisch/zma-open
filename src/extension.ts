@@ -19,6 +19,10 @@ import { processMdFile, reindex2, sharedIndex2 } from './Index2';
 import { activateCliActions } from './CliAction';
 
 export async function activate(context: vscode.ExtensionContext) {
+  console.log('ZMA Extension: activate function called!');
+
+  await ensurePagesFolderAndIntroduction(context);
+
   await reindex2();
 
   activateListEditing(context);
@@ -31,6 +35,8 @@ export async function activate(context: vscode.ExtensionContext) {
   activateDocumentSymbolProvider(context);
   activateTodayIndicator();
   activateCliActions(context);
+
+  context.subscriptions.push(vscode.commands.registerCommand('zma.introduction', () => ensurePagesFolderAndIntroduction(context)));
 
   const backlinkProvider = new BacklinkProvider();
   vscode.window.registerTreeDataProvider('pageBacklinks', backlinkProvider);
@@ -129,4 +135,30 @@ export async function activate(context: vscode.ExtensionContext) {
   });
 
   console.log('ZMA is now active!');
+}
+
+async function ensurePagesFolderAndIntroduction(context: vscode.ExtensionContext): Promise<void> {
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    console.log('ZMA Extension: No workspace folder open. Skipping pages folder creation.');
+    return;
+  }
+  const workspaceRoot = workspaceFolders[0].uri;
+  const pagesFolderPath = vscode.Uri.joinPath(workspaceRoot, 'pages');
+  const introductionFilePath = vscode.Uri.joinPath(pagesFolderPath, 'introduction.md');
+
+  try {
+    await vscode.workspace.fs.stat(pagesFolderPath);
+  } catch (error: any) {
+    if (error.code === 'FileNotFound') {
+      await vscode.workspace.fs.createDirectory(pagesFolderPath);
+      const introductionContent = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(context.extensionUri, 'media', 'introduction.md'));
+      await vscode.workspace.fs.writeFile(introductionFilePath, introductionContent);
+      vscode.window.showInformationMessage('Created \"pages\" folder and \"introduction.md\"');
+      const document = await vscode.workspace.openTextDocument(introductionFilePath);
+      await vscode.window.showTextDocument(document);
+    } else {
+      console.error('Error checking or creating pages folder:', error);
+    }
+  }
 }

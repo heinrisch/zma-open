@@ -130,7 +130,7 @@ export class Index2 {
     this._linkRawOccurances = null;
     this._linkScoringOccurances = null;
   }
-  
+
 }
 
 let globalIndex2: Index2 = new Index2();
@@ -142,112 +142,6 @@ export const isIndexReady = () => {
 export const sharedIndex2 = () => {
   return globalIndex2!;
 };
-
-async function normalizeAllLinkCases(index: Index2) {
-  const linkVariations = new Map<string, Set<string>>();
-
-  index.allFiles().forEach(file => {
-    file.linkLocations.forEach(ll => {
-      const link = ll.link.linkName();
-      const lowerLink = link.toLowerCase();
-      if (!linkVariations.has(lowerLink)) {
-        linkVariations.set(lowerLink, new Set());
-      }
-      linkVariations.get(lowerLink)?.add(link);
-    });
-  });
-
-  const canonicalCases = new Map<string, string>();
-  for (const [lowerLink, variations] of linkVariations.entries()) {
-    if (variations.size > 1) {
-      const variants = Array.from(variations);
-
-      const counts = new Map<string, number>();
-      index.allFiles().forEach(file => {
-        variants.forEach(variant => {
-          const regex = new RegExp(`\\[\\[${escapeRegExp(variant)}\\]\\]|\\[[^\\]]+\\]\\(${escapeRegExp(variant)}\\\)`, 'g');
-          const matches = file.content.match(regex);
-          if (matches) {
-            counts.set(variant, (counts.get(variant) || 0) + matches.length);
-          }
-        });
-      });
-
-      let canonicalCase = variants[0];
-      let maxCount = counts.get(variants[0]) || 0;
-
-      for (const variant of variants) {
-        const count = counts.get(variant) || 0;
-        if (count > maxCount ||
-          (count === maxCount && countUpperCase(variant) > countUpperCase(canonicalCase))) {
-          canonicalCase = variant;
-          maxCount = count;
-        }
-      }
-
-      canonicalCases.set(lowerLink, canonicalCase);
-    }
-  }
-
-  for (const file of index.allFiles()) {
-    let content = file.content;
-    let hasChanges = false;
-
-    const currentLinkName = file.link.linkName().toLowerCase();
-    if (canonicalCases.has(currentLinkName) && file.link.linkName() !== canonicalCases.get(currentLinkName)) {
-      const canonicalName = canonicalCases.get(currentLinkName)!;
-      const oldPath = file.link.filePath();
-      const newPath = oldPath.replace(file.link.linkName(), canonicalName);
-
-      try {
-        await vscode.workspace.fs.rename(
-          vscode.Uri.file(oldPath),
-          vscode.Uri.file(newPath),
-          { overwrite: false }
-        );
-
-        file.link = Link.fromRawLink(canonicalName);
-        hasChanges = true;
-      } catch (error) {
-        console.error(`Error renaming file from ${oldPath} to ${newPath}: ${error}`);
-      }
-    }
-
-    for (const [lowerLink, canonicalCase] of canonicalCases.entries()) {
-      const variants = linkVariations.get(lowerLink) || new Set();
-      for (const variant of variants) {
-        if (variant !== canonicalCase) {
-          const wikiRegex = new RegExp(`\\[\\[${escapeRegExp(variant)}\\]\\]`, 'g');
-          if (wikiRegex.test(content)) {
-            hasChanges = true;
-            content = content.replace(wikiRegex, `[[${canonicalCase}]]`);
-          }
-
-          const mdRegex = new RegExp(`\\[([^\\]]+)\\]\\(${escapeRegExp(variant)}\\\)`, 'g');
-          if (mdRegex.test(content)) {
-            hasChanges = true;
-            content = content.replace(mdRegex, (match, title) => `[${title}](${canonicalCase})`);
-          }
-        }
-      }
-    }
-
-    if (hasChanges) {
-      await vscode.workspace.fs.writeFile(
-        vscode.Uri.file(file.link.filePath()),
-        Buffer.from(content, 'utf-8')
-      );
-      file.content = content;
-
-      file.linkLocations.forEach(ll => {
-        const lowerLink = ll.link.linkName().toLowerCase();
-        if (canonicalCases.has(lowerLink)) {
-          ll.link = Link.fromRawLink(canonicalCases.get(lowerLink)!);
-        }
-      });
-    }
-  }
-}
 
 export async function reindex2() {
   console.log('Starting Reindex 2');
@@ -276,10 +170,9 @@ export async function reindex2() {
 
   stopwatch.lap('Initialized');
 
-  let journalsFilePath: string | null = null;
 
   const folderPaths = (await vscode.workspace.fs.readDirectory(workspaceFolder.uri))
-    .filter(([subfolder]) => ['journals', 'pages'].includes(subfolder))
+    .filter(([subfolder]) => ['pages'].includes(subfolder))
     .map(([subfolder]) => {
       const filePath = vscode.Uri.joinPath(workspaceFolder.uri, subfolder).fsPath;
       return {
@@ -289,15 +182,10 @@ export async function reindex2() {
     });
 
   for (const { subfolder, filePath } of folderPaths) {
-    if (subfolder === 'journals') {
-      journalsFilePath = filePath;
-    } else if (subfolder === 'pages') {
+    if (subfolder === 'pages') {
       index.pagesFilePath = filePath;
     }
   }
-
-  await traverseFolder(vscode.Uri.file(journalsFilePath!), index);
-  stopwatch.lap('Traversed journals');
 
   await traverseFolder(vscode.Uri.file(index.pagesFilePath!), index);
   stopwatch.lap('Traversed pages');
@@ -331,10 +219,6 @@ export async function reindex2() {
   addLinkAndAliasHeaders(index);
 
   stopwatch.lap('link:: headers');
-
-  await normalizeAllLinkCases(index);
-
-  stopwatch.lap('Normalized link cases');
 
   const memoryUsage = process.memoryUsage();
   const heapUsage = (memoryUsage.heapUsed / 1024 / 1024).toFixed(2);
@@ -400,7 +284,7 @@ export async function processMdFile(fileContent: string, filePath: string): Prom
 
   const linkMatches = regexMatches(RegexPatterns.RE_LINKS(), fileContent);
   linkMatches.forEach(match => {
-    const rawLink = match.fullMatch.replace(/\\[\\[|\\]\\]/g, '').trim();
+    const rawLink = match.fullMatch.replace(/\[\[|\]\]/g, '').trim();
     const ll = LinkLocation.create(fileContent, Link.fromRawLink(rawLink), link, match.row, match.column, LinkType.LINK);
     zmaFile.linkLocations.push(ll);
   });
