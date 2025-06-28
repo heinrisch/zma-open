@@ -2,7 +2,7 @@
   "name": "zma",
   "displayName": "zma",
   "description": "Next level notes",
-  "version": "0.6.11",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.101.0"
   },
