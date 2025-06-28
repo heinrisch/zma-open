@@ -18,8 +18,8 @@ ZMA is a VS Code extension for note-taking with Markdown. It integrates advanced
 
 ## Getting Started
 
-1.  **Install the ZMA extension** from the VS Code Marketplace.
-2.  **Open a folder** in VS Code for your notes.
+1.  **Install the ZMA extension** by downloading and adding the `.vsix` file from releases. 
+2.  **Open a folder** an empty folder in VS Code.
 3.  **Run ZMA: Introduction** from your VS Code commands (usually accessed through `ctrl/cmd + shift + P`)
 
 ## VS Code Commands
