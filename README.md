@@ -2,6 +2,8 @@
 
 ZMA is a VS Code extension for note-taking with Markdown. It integrates advanced features directly into your Markdown files, assisting with organization, navigation, and task management.
 
+![ZMA Screenshot](images/screenshot.png)
+
 ## Features
 
 *   **Markdown Integration**: Supports standard Markdown format within VS Code.
