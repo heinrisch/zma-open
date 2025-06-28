@@ -1,0 +1,261 @@
+{
+  "name": "zma",
+  "displayName": "zma",
+  "description": "Next level notes",
+  "version": "0.6.11",
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": ["onLanguage:markdown"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": [
+      {
+        "title": "ZMA Configuration",
+        "properties": {
+          "zma.config.blockHighlightEven": {
+            "type": "number",
+            "default": 0.05,
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Highlight alpha of even blocks"
+          },
+          "zma.config.blockHighlightOdd": {
+            "type": "number",
+            "default": 0.1,
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Highlight alpha of odd blocks"
+          },
+          "zma.config.bulletThreadOpacity": {
+            "type": "number",
+            "default": 0.5,
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Opacity of the bullet thread"
+          },
+          "zma.config.bulletThreadWidthPx": {
+            "type": "number",
+            "default": 2,
+            "minimum": 0,
+            "description": "Width of the bullet thread in pixels"
+          }
+        }
+      }
+    ],
+    "commands": [
+      {
+        "command": "zma.reindex",
+        "title": "ZMA: Reindex"
+      },
+      {
+        "command": "zma.yesterday",
+        "title": "ZMA: Yesterday"
+      },
+      {
+        "command": "zma.today",
+        "title": "ZMA: Today"
+      },
+      {
+        "command": "zma.refreshexplorers",
+        "title": "ZMA: Refresh Explorers"
+      },
+      {
+        "command": "zma.quickOpenLink",
+        "title": "ZMA: Quick Open Link"
+      },
+      {
+        "command": "zma.quickOpenHref",
+        "title": "ZMA: Quick Open Href"
+      },
+      {
+        "command": "zma.formatAllFiles",
+        "title": "ZMA: Format All Files"
+      },
+      {
+        "command": "zma.git.commitandpush",
+        "title": "ZMA: Commit and Push"
+      },
+      {
+        "command": "zma.git.removeemptyfiles",
+        "title": "ZMA: Remove Empty Files"
+      },
+      {
+        "command": "zma.remake.lastedit",
+        "title": "ZMA: Remake LastEdit Index"
+      },
+      {
+        "command": "zma.taskLink.snooze1Day",
+        "title": "+S"
+      },
+      {
+        "command": "zma.taskLink.resetsnooze",
+        "title": "rS"
+      },
+      {
+        "command": "zma.taskLink.plusprio",
+        "title": "+P"
+      },
+      {
+        "command": "zma.taskLink.minusprio",
+        "title": "-P"
+      },
+      {
+        "command": "zma.runCliAction",
+        "title": "ZMA: Run Cli Action"
+    }
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "zma.taskLink.snooze1Day",
+          "when": "view == tasks && viewItem == Tasklink",
+          "group": "inline"
+        },
+        {
+          "command": "zma.taskLink.resetsnooze",
+          "when": "view == tasks && viewItem == Tasklink",
+          "group": "inline"
+        },
+        {
+          "command": "zma.taskLink.plusprio",
+          "when": "view == tasks && viewItem == Tasklink",
+          "group": "inline"
+        },
+        {
+          "command": "zma.taskLink.minusprio",
+          "when": "view == tasks && viewItem == Tasklink",
+          "group": "inline"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "zma.commandsonEnterKey",
+        "key": "enter",
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && (!suggestWidgetVisible || config.editor.acceptSuggestionOnEnter == 'off') && !editorHasMultipleSelections && vim.mode != 'Normal' && vim.mode != 'Visual' && vim.mode != 'VisualBlock' && vim.mode != 'VisualLine' && vim.mode != 'SearchInProgressMode' && vim.mode != 'CommandlineInProgress' && vim.mode != 'Replace' && vim.mode != 'EasyMotionMode' && vim.mode != 'EasyMotionInputMode' && vim.mode != 'SurroundInputMode' && !zma.commandseditor.cursor.inFencedCodeBlock && !zma.commandseditor.cursor.inMathEnv"
+      },
+      {
+        "command": "zma.commandsonShiftEnterKey",
+        "key": "shift+enter",
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && (!suggestWidgetVisible || config.editor.acceptSuggestionOnEnter == 'off') && !editorHasMultipleSelections && !zma.commandseditor.cursor.inFencedCodeBlock && !zma.commandseditor.cursor.inMathEnv"
+      },
+      {
+        "command": "zma.commandsonTabKey",
+        "key": "tab",
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible && !inlineSuggestionVisible && !editorHasMultipleSelections && !editorTabMovesFocus && !inSnippetMode && !hasSnippetCompletions && !hasOtherSuggestions"
+      },
+      {
+        "command": "zma.commandsonShiftTabKey",
+        "key": "shift+tab",
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible && !editorHasMultipleSelections && !editorTabMovesFocus && !inSnippetMode && !hasSnippetCompletions && !hasOtherSuggestions && zma.commandseditor.cursor.inList && !zma.commandseditor.cursor.inFencedCodeBlock && !zma.commandseditor.cursor.inMathEnv"
+      },
+      {
+        "command": "zma.commandsonBackspaceKey",
+        "key": "backspace",
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible && !editorHasMultipleSelections && vim.mode != 'Normal' && vim.mode != 'Visual' && vim.mode != 'VisualBlock' && vim.mode != 'VisualLine' && vim.mode != 'SearchInProgressMode' && vim.mode != 'CommandlineInProgress' && vim.mode != 'Replace' && vim.mode != 'EasyMotionMode' && vim.mode != 'EasyMotionInputMode' && vim.mode != 'SurroundInputMode' && !zma.commandseditor.cursor.inFencedCodeBlock && !zma.commandseditor.cursor.inMathEnv"
+      },
+      {
+        "command": "zma.commandsonIndentLines",
+        "key": "ctrl+]",
+        "mac": "cmd+]",
+        "when": "editorTextFocus && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible"
+      },
+      {
+        "command": "zma.commandsonOutdentLines",
+        "key": "ctrl+[",
+        "mac": "cmd+[",
+        "when": "editorTextFocus && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible"
+      },
+      {
+        "command": "zma.commandsediting.toggleStrikethrough",
+        "key": "alt+s",
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/"
+      },
+      {
+        "command": "zma.commandsediting.toggleStrong",
+        "key": "alt+b",
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/"
+      },
+      {
+        "command": "zma.refreshexplorers",
+        "key": "ctrl+k r",
+        "mac": "cmd+k r"
+      },
+      {
+        "command": "zma.quickOpenLink",
+        "key": "ctrl+k p",
+        "mac": "cmd+k p"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "zma-explorer",
+          "title": "ZMA",
+          "icon": "media/zma.svg"
+        }
+      ]
+    },
+    "views": {
+      "zma-explorer": [
+        {
+          "id": "pageBacklinks",
+          "name": "Page Backlinks",
+          "contextualTitle": "Page Backlinks"
+        },
+        {
+          "id": "tasks",
+          "name": "Tasks",
+          "contextualTitle": "Page Tasks"
+        },
+        {
+          "id": "pageHashtags",
+          "name": "Page Hashtags",
+          "contextualTitle": "Page Hashtags"
+        }
+      ]
+    },
+    "documentFormattingProvider": "true",
+    "definitionProvider": "true",
+    "referencesProvider": "true"
+  },
+  "files": [
+    "out",
+    "media",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "npm run watch-ts",
+    "watch-ts": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test",
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+    "test-compile": "tsc -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.*",
+    "@types/vscode": "^1.101.0",
+    "@typescript-eslint/eslint-plugin": "^8.35.0",
+    "@typescript-eslint/parser": "^8.35.0",
+    "autoprefixer": "^10.4.21",
+    "css-loader": "^7.1.2",
+    "esbuild": "^0.25.5",
+    "eslint": "^9.30.0",
+    "eslint-plugin-promise": "^7.2.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/heinrisch/zma-open"
+  },
+  "license": "MIT"
+}
