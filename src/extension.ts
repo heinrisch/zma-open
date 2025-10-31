@@ -17,6 +17,7 @@ import { activateTodayIndicator } from './TodayIndicator';
 import { activateTasks } from './Tasks';
 import { processMdFile, reindex2, sharedIndex2 } from './Index2';
 import { activateCliActions } from './CliAction';
+import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
 
 export async function activate(context: vscode.ExtensionContext) {
   console.log('ZMA Extension: activate function called!');
@@ -35,6 +36,7 @@ export async function activate(context: vscode.ExtensionContext) {
   activateDocumentSymbolProvider(context);
   activateTodayIndicator();
   activateCliActions(context);
+  registerMarkdownInlineUrlFold(context);
 
   context.subscriptions.push(vscode.commands.registerCommand('zma.introduction', () => ensurePagesFolderAndIntroduction(context)));
 
