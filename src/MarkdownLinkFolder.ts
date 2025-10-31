@@ -86,11 +86,16 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
         const selStart = doc.offsetAt(selection.start);
         const selEnd = doc.offsetAt(selection.end);
 
+        const cursorLine = editor.selection.active.line;
+
         for (let m: RegExpExecArray | null = rx.exec(text); m; m = rx.exec(text)) {
             const urlStartOffset = m.index + m[0].indexOf(m[2]);
             const urlEndOffset = urlStartOffset + m[2].length;
 
             const range = new vscode.Range(doc.positionAt(urlStartOffset), doc.positionAt(urlEndOffset));
+
+            if (range.start.line === cursorLine || range.end.line === cursorLine) continue;
+
 
             const intersects = !(urlEndOffset <= selStart || urlStartOffset >= selEnd);
             if (intersects) {
