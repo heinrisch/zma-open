@@ -14,7 +14,7 @@
     "onCommand:zma.introduction",
     "onCommand:zma.inlineFold.toggleMarkdownUrls"
   ],
-  "main": "./out/extension.js",
+  "main": "./out/main.js",
   "contributes": {
     "configuration": [
       {
