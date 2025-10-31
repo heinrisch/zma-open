@@ -10,7 +10,6 @@ import { activateDefinitionProvider } from './DefinitionProvider';
 import { activateReferenceProvider } from './ReferenceProvider';
 import { activateDecorator } from './Decorators';
 import { HashTagProvider } from './HashtagExplorer';
-import { activateLinkProvider } from './HrefShortener';
 import { TextDocumentContentChangeEvent } from 'vscode';
 import { activateDocumentSymbolProvider } from './SymbolProvidor';
 import { activateTodayIndicator } from './TodayIndicator';
@@ -32,7 +31,6 @@ export async function activate(context: vscode.ExtensionContext) {
   activateDefinitionProvider(context);
   activateReferenceProvider(context);
   activateDecorator(context);
-  activateLinkProvider(context);
   activateDocumentSymbolProvider(context);
   activateTodayIndicator();
   activateCliActions(context);

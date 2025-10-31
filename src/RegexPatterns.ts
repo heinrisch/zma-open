@@ -1,5 +1,4 @@
 export class RegexPatterns {
-  static RE_HREF_TO_SHORTEN = () => RegExp(/\]\((https?:\/\/[^)]+)\)/gm);
   static RE_SHORTENED_HREF = () => RegExp(/\[[^\]]+\]\(([a-zA-Z0-9]+)\)/gm);
   static RE_LINKS = () => RegExp(/\[\[([^\]]+)\]\]/gm);
   static RE_HREF = () => RegExp(/\[([^[]+)\]\(([^)]*)\)/gm);

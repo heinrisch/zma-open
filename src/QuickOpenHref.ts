@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { Disposable, QuickPickItem, Uri, window } from 'vscode';
-import { shortToHref } from './HrefShortener';
 import { getLastEdit } from './LastEditHandler';
 import { Link } from './Link';
 import { ScoringUtils } from './ScoringUtils';
@@ -32,11 +31,11 @@ async function pickHref() {
     .map(linkRaw => {
 
       const link = Link.fromRawLink(linkRaw);
-      const shortHrefs = sharedIndex2().linkLocations().filter(ll => ll.url && ll.link.linkName() === linkRaw).map(ll => ll.url!);
-      if (!shortHrefs || shortHrefs.length === 0) {
+      const url = sharedIndex2().linkLocations().filter(ll => ll.url && ll.link.linkName() === linkRaw).map(ll => ll.url!);
+      if (!url || url.length === 0) {
         return null;
       }
-      const href = shortToHref(shortHrefs[0]);
+      const href = url[0];
       if (!href) {
         return null;
       }

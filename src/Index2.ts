@@ -1,7 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { AutocompleteItem, buildAutocompleteItems } from './Autocomplete';
-import { addHrefToShortened, hrefToShort } from './HrefShortener';
 import { reindexLastEdit } from './LastEditHandler';
 import { Link } from './Link';
 import { LinkLocation, LinkType } from './LinkLocation';
@@ -258,18 +257,7 @@ async function traverseFolder(folderPath: vscode.Uri, index: Index2): Promise<vo
 }
 
 async function preprocessMdFile(fileContent: string, filePath: string): Promise<string> {
-  const matches = regexMatches(RegexPatterns.RE_HREF_TO_SHORTEN(), fileContent);
   let editedFileContent = fileContent;
-
-  for (const match of matches) {
-    const link = match.groups[0];
-    let short = hrefToShort(link);
-    if (!short) {
-      await addHrefToShortened(link);
-      short = hrefToShort(link);
-    }
-    editedFileContent = editedFileContent.replace(`(${link})`, `(${short!})`);
-  }
 
   if (editedFileContent !== fileContent) {
     await vscode.workspace.fs.writeFile(vscode.Uri.file(filePath), new TextEncoder().encode(editedFileContent));
@@ -337,12 +325,11 @@ function addLinkAndAliasHeaders(index: Index2) {
   index.linkLocations().filter(ll => ll.type === LinkType.HREF && ll.url).filter(ll => ll.link.fileExists()).forEach(async ll => {
     const link = ll.link;
     const url = ll.url;
-    const shortUrl = hrefToShort(url || '') || url;
     const uri = vscode.Uri.file(ll.link.filePath()); // will throw exception if file does not exist
     const content = await vscode.workspace.fs.readFile(uri);
     let contentString = content.toString(); // Convert Uint8Array to string
 
-    const linkHeader = `link:: [${link.linkName()}](${shortUrl})`;
+    const linkHeader = `link:: [${link.linkName()}](${url})`;
     if (!contentString.includes(linkHeader)) {
       contentString = linkHeader + '\n' + contentString;
     }
