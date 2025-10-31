@@ -11,7 +11,8 @@
   ],
   "activationEvents": [
     "onLanguage:markdown",
-    "onCommand:zma.introduction"
+    "onCommand:zma.introduction",
+    "onCommand:zma.inlineFold.toggleMarkdownUrls"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -113,6 +114,10 @@
       {
         "command": "zma.introduction",
         "title": "ZMA: Introduction"
+      },
+      {
+        "command": "zma.inlineFold.toggleMarkdownUrls",
+        "title": "ZMA: Toggle Inline URL Folding"
       }
     ],
     "menus": {
@@ -250,14 +255,14 @@
     "test-compile": "tsc -p ./"
   },
   "devDependencies": {
-    "@types/node": "24.0.*",
-    "@types/vscode": "^1.101.0",
-    "@typescript-eslint/eslint-plugin": "^8.35.0",
-    "@typescript-eslint/parser": "^8.35.0",
+    "@types/node": "24.8.*",
+    "@types/vscode": "^1.105.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.1",
+    "@typescript-eslint/parser": "^8.46.1",
     "autoprefixer": "^10.4.21",
     "css-loader": "^7.1.2",
-    "esbuild": "^0.25.5",
-    "eslint": "^9.30.0",
+    "esbuild": "^0.25.11",
+    "eslint": "^9.38.0",
     "eslint-plugin-promise": "^7.2.1"
   },
   "repository": {
