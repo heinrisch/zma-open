@@ -22,9 +22,9 @@ export class Link {
     return l;
   }
 
-    public fileName(): string {
-      return this.raw.replace(/\//g, '___').replace(/'/g, "") + '.md';
-    }
+  public fileName(): string {
+    return this.raw.replace(/\//g, '___').replace(/'/g, "") + '.md';
+  }
 
   public filePath(): string {
     return _rawToFilePath.get(this.raw) || path.join(sharedIndex2().pagesFilePath, this.fileName());

@@ -426,10 +426,10 @@ export function activateDecorator(context: vscode.ExtensionContext) {
       DoneDecorator,
       ThoughtDecorator,
       QuestionDecorator,
-      LinkDecorator,
-      HrefDecorator,
-      LinkBracketDecorator,
-      HrefBracketDecorator,
+      //LinkDecorator,
+      //HrefDecorator,
+      //LinkBracketDecorator,
+      //HrefBracketDecorator,
     ].forEach((decorator) => {
       activeEditor!.setDecorations(decorator.decorationType, []);
       activeEditor!.setDecorations(decorator.decorationType, decorator.apply(activeEditor!));

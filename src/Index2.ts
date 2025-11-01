@@ -130,6 +130,21 @@ export class Index2 {
     return this._allActiveTasks;
   }
 
+  private _urlForLinkRaw: Map<string, string[]> | null = null;
+
+  public urlsForLinkRaw(linkRaw: string): string[] {
+    if (this._urlForLinkRaw === null) {
+      this._urlForLinkRaw = new Map();
+      this.linkLocations().filter(ll => ll.url).forEach(ll => {
+        const linkRaw = ll.link.linkName();
+        const urls = this._urlForLinkRaw!.get(linkRaw) || [];
+        urls.push(ll.url!);
+        this._urlForLinkRaw!.set(linkRaw, urls);
+      });
+    }
+    return this._urlForLinkRaw.get(linkRaw) || [];
+  }
+
   public clearCache() {
     this._allLinkLocations = null;
     this._allLinksRaw = null;
@@ -138,6 +153,7 @@ export class Index2 {
     this._linkRawOccurances = null;
     this._linkScoringOccurances = null;
     this._allActiveTasks = null;
+    this._urlForLinkRaw = null;
   }
 
 }
