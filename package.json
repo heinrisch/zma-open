@@ -120,6 +120,11 @@
         "command": "zma.inlineFold.toggleMarkdownUrls",
         "title": "ZMA: Toggle Inline URL Folding"
       }
+      ,
+      {
+        "command": "zma.cleanSelectedText",
+        "title": "ZMA: Clean Selected Text"
+      }
     ],
     "menus": {
       "view/item/context": [

@@ -133,4 +133,68 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
       await remakeLastEditIndex();
     })
   );
+
+  // Clean selected text according to zma rules
+  context.subscriptions.push(
+    vscode.commands.registerCommand('zma.cleanSelectedText', async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        void vscode.window.showInformationMessage('No active editor');
+        return;
+      }
+
+      const document = editor.document;
+      const selection = editor.selection;
+
+      // If there's no selection, operate on the current line
+      const range = selection.isEmpty
+        ? document.lineAt(selection.active.line).range
+        : new vscode.Range(selection.start, selection.end);
+
+      const original = document.getText(range);
+
+      function cleanText(input: string): string {
+        let s = input;
+
+        // Collapse multiple slashes into a single '/'
+        s = s.replace(/\/\/{2,}/g, '/');
+
+        // If pattern [AAA] BBB (leading spaces allowed), convert to "AAA - BBB"
+        const m = s.match(/^\s*\[([^\]]+)\]\s*(.*)$/s);
+        if (m) {
+          let a = m[1];
+          let b = m[2];
+          // remove any remaining brackets/parentheses
+          a = a.replace(/[\[\]\(\)]/g, '');
+          b = b.replace(/[\[\]\(\)]/g, '');
+          // remove commas, periods and apostrophes
+          a = a.replace(/[,\.']/g, '');
+          b = b.replace(/[,\.']/g, '');
+          // collapse slashes then convert to hyphens
+          a = a.replace(/\/\/{2,}/g, '/').replace(/\//g, '-');
+          b = b.replace(/\/\/{2,}/g, '/').replace(/\//g, '-');
+          a = a.replace(/\s+/g, ' ').trim();
+          b = b.replace(/\s+/g, ' ').trim();
+          return `${a} - ${b}`;
+        }
+
+        // General cleaning for non-bracketed text
+        s = s.replace(/[\[\]\(\)]/g, '');
+        s = s.replace(/[,\.']/g, '');
+        s = s.replace(/\/\/{2,}/g, '/');
+        s = s.replace(/\//g, '-');
+        s = s.replace(/\s+/g, ' ').trim();
+        // normalize spacing around hyphens
+        s = s.replace(/\s*-\s*/g, ' - ');
+
+        return s;
+      }
+
+      const cleaned = cleanText(original);
+
+      await editor.edit((eb) => {
+        eb.replace(range, cleaned);
+      });
+    })
+  );
 };
