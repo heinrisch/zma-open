@@ -7,38 +7,49 @@ import { sharedIndex2 } from './Index2';
 import { LinkType } from './LinkLocation';
 
 type Entry = [string, Date];
-let fileEdited: Entry[] = [];
 const lastEditIndexFile = 'lastEdit.txt';
 
 const separator = ';,;';
 
-const _cleanFileEdited = () => {
-  fileEdited.sort((a: Entry, b: Entry) => {
-    if (a[1] > b[1]) {
-      return 1;
-    } else if (a[1] < b[1]) {
-      return -1;
-    }
-    return 0;
+const lastEditIndex = new Map<string, Date>();
+
+const writeLastEditIndexToFile = () => {
+  const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+  const lastEditFilePath = path.join(folder || '', lastEditIndexFile);
+  let content = '';
+  
+  const sortedEntries: Entry[] = Array.from(lastEditIndex.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  sortedEntries.forEach(([linkName, date]) => {
+    content += `${linkName}${separator}${date.toISOString()}\n`;
   });
 
-  const visited = new Set<string>();
+  fs.writeFileSync(lastEditFilePath, content);
+};
 
-  fileEdited = fileEdited
-    .reverse()
-    .filter((entry) => {
-      if (visited.has(entry[0])) {
-        return false;
+export const readLastEditIndexFromFile = () => {
+  const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+  const lastEditFilePath = path.join(folder || '', lastEditIndexFile);
+
+  lastEditIndex.clear();
+
+  try {
+    const content = fs.readFileSync(lastEditFilePath, 'utf-8');
+    const lines = content.split('\n');
+    
+    lines.forEach((line) => {
+      const [linkName, dateStr] = line.split(separator);
+      const date = new Date(dateStr);
+      if (linkName && dateStr && !isNaN(date.getTime())) {
+        lastEditIndex.set(linkName, date);
       }
-      visited.add(entry[0]);
-      return true;
-    })
-    .reverse();
+    });
+  } catch (error) {
+    console.error(error);
+    vscode.window.showErrorMessage('Error reading last edit index file.');
+  }
 };
 
 export const remakeLastEditIndex = async () => {
-  reindexLastEdit();
-
   const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
   const lastEditFilePath = path.join(folder || '', lastEditIndexFile);
   fs.writeFileSync(lastEditFilePath, '');
@@ -68,15 +79,13 @@ export const remakeLastEditIndex = async () => {
         if (fileExists) {
           const gitEdited = getLastMeaningfulEditDate(filePath);
           if (gitEdited && (!current || gitEdited.getTime() !== current.getTime()) && dateIsValid(gitEdited)) {
-            fileEdited = fileEdited.filter(([a]) => a !== link.linkName());
-            fileEdited.push([link.linkName(), gitEdited]);
+            lastEditIndex.set(link.linkName(), gitEdited);
             console.log(link, 'New date:', gitEdited, 'Old date:', current);
           }
         } else {
           const backLinkDate = dateFromBacklink(link.linkName());
           if (backLinkDate && (!current || backLinkDate.getTime() !== current.getTime()) && dateIsValid(backLinkDate)) {
-            fileEdited = fileEdited.filter(([a]) => a !== link.linkName());
-            fileEdited.push([link.linkName(), backLinkDate]);
+            lastEditIndex.set(link.linkName(), backLinkDate);
             console.log(link, 'New date:', backLinkDate, 'Old date:', current);
           }
         }
@@ -84,11 +93,11 @@ export const remakeLastEditIndex = async () => {
     }
   );
 
-  writeLastEditToFile();
+  writeLastEditIndexToFile();
 };
 
 export const getLastEditedIndexed = (linkName: string): Date | undefined => {
-  return fileEdited.find((e: Entry) => e[0] === linkName)?.[1];
+  return lastEditIndex.get(linkName);
 };
 
 export const onSavedFile = (document: vscode.TextDocument) => {
@@ -97,18 +106,10 @@ export const onSavedFile = (document: vscode.TextDocument) => {
     const link = Link.fromFilePath(filePath);
     const linkName = link.linkName();
 
-    addLastEditedToFile(linkName, new Date());
+    lastEditIndex.set(linkName, new Date());
 
-    fileEdited.push([linkName, new Date()]);
+    writeLastEditIndexToFile();
   }
-};
-
-const addLastEditedToFile = (linkName: string, date: Date) => {
-  const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-  const lastEditFilePath = path.join(folder || '', lastEditIndexFile);
-  const content = `${linkName}${separator}${date.toISOString()}\n`;
-
-  fs.appendFileSync(lastEditFilePath, content);
 };
 
 const dateIsValid = (date: Date | null | undefined) => {
@@ -170,8 +171,8 @@ export const getLastEdit = (linkName: string, updateWithNow: boolean = true): Da
   }
 
   if (newDate) {
-    addLastEditedToFile(linkName, stored!);
-    fileEdited.push([linkName, stored!]);
+    lastEditIndex.set(linkName, stored!);
+    writeLastEditIndexToFile();
   }
   return stored!;
 };
@@ -208,42 +209,3 @@ function getLastMeaningfulEditDate(filePath: string): Date | undefined {
     return undefined;
   }
 }
-
-export const reindexLastEdit = () => {
-  const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-  const lastEditFilePath = path.join(folder || '', lastEditIndexFile);
-
-  fileEdited = [];
-  try {
-    const content = fs.readFileSync(lastEditFilePath, 'utf-8');
-    const lines = content.split('\n');
-
-    lines.forEach((line) => {
-      const [linkName, dateStr] = line.split(separator);
-      const date = new Date(dateStr);
-      if (linkName && dateStr && !isNaN(date.getTime())) {
-        fileEdited.push([linkName, date]);
-      }
-    });
-  } catch (error) {
-    console.error(error);
-  }
-
-  writeLastEditToFile();
-
-  console.log('Read file index');
-};
-
-const writeLastEditToFile = () => {
-  const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-  const lastEditFilePath = path.join(folder || '', lastEditIndexFile);
-  let content = '';
-
-  _cleanFileEdited();
-
-  fileEdited.forEach(([linkName, date]) => {
-    content += `${linkName}${separator}${date.toISOString()}\n`;
-  });
-
-  fs.writeFileSync(lastEditFilePath, content);
-};

@@ -1,13 +1,13 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { AutocompleteItem, buildAutocompleteItems } from './Autocomplete';
-import { reindexLastEdit } from './LastEditHandler';
 import { Link } from './Link';
 import { LinkLocation, LinkType } from './LinkLocation';
 import { RegexPatterns } from './RegexPatterns';
 import { Stopwatch } from './Stopwatch';
 import { findAndCreateTasks, resetTasks } from './Tasks';
 import { escapeRegExp } from './Util';
+import { readLastEditIndexFromFile } from './LastEditHandler';
 
 class ZmaFile {
   constructor(
@@ -189,7 +189,7 @@ export async function reindex2() {
   await traverseFolder(vscode.Uri.file(index.pagesFilePath!), index);
   stopwatch.lap('Traversed pages');
 
-  reindexLastEdit();
+  readLastEditIndexFromFile();
   stopwatch.lap('Reindexed lastEdit');
 
   void vscode.commands.executeCommand('zma.refreshexplorers');
