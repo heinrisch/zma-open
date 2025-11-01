@@ -5,7 +5,7 @@ import { Link } from './Link';
 import { LinkLocation, LinkType } from './LinkLocation';
 import { RegexPatterns } from './RegexPatterns';
 import { Stopwatch } from './Stopwatch';
-import { findAndCreateTasks, resetTasks } from './Tasks';
+import { findAndCreateTasks, Task, TaskState } from './Tasks';
 import { escapeRegExp } from './Util';
 import { readLastEditIndexFromFile } from './LastEditHandler';
 
@@ -15,6 +15,7 @@ class ZmaFile {
     public content: string,
     public linkLocations: LinkLocation[] = [],
     public aliases: [string, string][] = [],
+    public tasks: Task[] = [],
     public embeddings: Map<LinkLocation, number[]> = new Map()
   ) {
   }
@@ -108,7 +109,6 @@ export class Index2 {
     return this._linkRawOccurances.get(linkRaw) || 0;
   }
 
-
   private _linkScoringOccurances: number | null = null;
 
   public linkScoringOccurances(): number {
@@ -121,6 +121,15 @@ export class Index2 {
     return this._linkScoringOccurances!;
   }
 
+  private _allActiveTasks: Task[] | null = null;
+  
+  public allActiveTasks(): Task[] {
+    if (this._allActiveTasks === null) {
+      this._allActiveTasks = this.allFiles().flatMap(f => f.tasks.filter(t => t.state !== TaskState.Done));
+    }
+    return this._allActiveTasks;
+  }
+
   public clearCache() {
     this._allLinkLocations = null;
     this._allLinksRaw = null;
@@ -128,6 +137,7 @@ export class Index2 {
     this._autoCompleteItems = null;
     this._linkRawOccurances = null;
     this._linkScoringOccurances = null;
+    this._allActiveTasks = null;
   }
 
 }
@@ -147,8 +157,6 @@ export async function reindex2() {
   const stopwatch = new Stopwatch('Reindex 2');
 
   await vscode.workspace.saveAll();
-
-  resetTasks();
 
   const index = new Index2();
 
@@ -316,7 +324,7 @@ export async function processMdFile(fileContent: string, filePath: string): Prom
     zmaFile.linkLocations.push(ll);
   });
 
-  findAndCreateTasks(link, fileContent);
+  zmaFile.tasks = findAndCreateTasks(link, fileContent);
 
   return zmaFile;
 }

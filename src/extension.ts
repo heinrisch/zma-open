@@ -132,6 +132,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const zmaFile = await processMdFile(fileContent, filePath);
     sharedIndex2().addFile(zmaFile);
+
+    backlinkProvider.refresh();
+    hashtagNodeProvider.refresh();
+    taskProvider.refresh();
   });
 
   console.log('ZMA is now active!');

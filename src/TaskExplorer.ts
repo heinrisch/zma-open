@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { Task, TaskState, getTaskData, sharedTasks } from './Tasks';
+import { Task, TaskState, getTaskData } from './Tasks';
+import { sharedIndex2 } from './Index2';
 
 
 export class TaskProvider implements vscode.TreeDataProvider<TaskLink | TaskGroup> {
@@ -37,7 +38,7 @@ export class TaskProvider implements vscode.TreeDataProvider<TaskLink | TaskGrou
   }
 
   private activeTasks(): Task[] {
-    return sharedTasks().filter((task: Task) => {
+    return sharedIndex2().allActiveTasks().filter((task: Task) => {
       return task.state === TaskState.Todo || task.state === TaskState.Doing;
     });
   }
