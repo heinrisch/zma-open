@@ -119,8 +119,7 @@
       {
         "command": "zma.inlineFold.toggleMarkdownUrls",
         "title": "ZMA: Toggle Inline URL Folding"
-      }
-      ,
+      },
       {
         "command": "zma.cleanSelectedText",
         "title": "ZMA: Clean Selected Text"
@@ -248,11 +247,16 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
-    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "vscode:prepublish": "npm run esbuild-base -- --minify && npm run esbuild-mcp",
     "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
+    "esbuild-mcp": "esbuild ./mcp.ts --bundle --outfile=out/mcp.js --format=cjs --platform=node --banner:js=\"#!/usr/bin/env node\" --external:vscode",
     "esbuild": "npm run esbuild-base -- --sourcemap",
     "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
     "test-compile": "tsc -p ./"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "24.8.*",
