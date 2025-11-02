@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { bestAlias } from './Alias';
 import { escapeRegExp } from './Util';
 import { RegexPatterns } from './RegexPatterns';
-import { sharedIndex2 } from './Index2';
+import { sharedIndex2 } from './Index2Compat';
 import { Link } from './Link';
 import { bulletRegionLines, Range, Position } from './LinkLocation';
 
