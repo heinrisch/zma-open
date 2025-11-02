@@ -24,7 +24,7 @@ export enum FileType {
 }
 
 export interface WorkspaceAdapter {
-  workspaceFolders?: { uri: { fsPath: string } }[];
+  workspaceFolders?: ReadonlyArray<{ uri: { fsPath: string } }>;
   getWorkspacePath(): string | null;
 }
 
