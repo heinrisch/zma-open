@@ -1,5 +1,4 @@
 import * as path from 'path';
-import * as vscode from 'vscode';
 import { AutocompleteItem, buildAutocompleteItems } from './Autocomplete';
 import { Link } from './Link';
 import { LinkLocation, LinkType } from './LinkLocation';
@@ -8,6 +7,28 @@ import { Stopwatch } from './Stopwatch';
 import { findAndCreateTasks, Task, TaskState } from './Tasks';
 import { escapeRegExp } from './Util';
 import { readLastEditIndexFromFile } from './LastEditHandler';
+
+// Abstraction layer for file system operations
+export interface FileSystemAdapter {
+  saveAll?(): Promise<void>;
+  readDirectory(uri: string): Promise<[string, FileType][]>;
+  readFile(uri: string): Promise<Uint8Array>;
+  writeFile(uri: string, content: Uint8Array): Promise<void>;
+  joinPath(base: string, ...paths: string[]): string;
+  showErrorMessage?(message: string): Promise<void>;
+  executeCommand?(command: string): Promise<void>;
+}
+
+export enum FileType {
+  File = 1,
+  Directory = 2
+}
+
+// Workspace abstraction
+export interface WorkspaceAdapter {
+  workspaceFolders?: { uri: { fsPath: string } }[];
+  getWorkspacePath(): string | null;
+}
 
 class ZmaFile {
   constructor(
@@ -168,41 +189,49 @@ export const sharedIndex2 = () => {
   return globalIndex2!;
 };
 
-export async function reindex2() {
+export async function reindex2(fs: FileSystemAdapter, workspace: WorkspaceAdapter) {
   console.log('Starting Reindex 2');
   const stopwatch = new Stopwatch('Reindex 2');
 
-  await vscode.workspace.saveAll();
+  if (fs.saveAll) {
+    await fs.saveAll();
+  }
 
   const index = new Index2();
 
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders) {
-    await vscode.window.showErrorMessage('No workspace selected');
+  const workspacePath = workspace.getWorkspacePath();
+  if (!workspacePath) {
+    const errorMessage = 'No workspace selected';
+    if (fs.showErrorMessage) {
+      await fs.showErrorMessage(errorMessage);
+    } else {
+      console.error(errorMessage);
+    }
     return;
   }
 
-  if (workspaceFolders.length > 1) {
-    await vscode.window.showErrorMessage('More than one workspace selected');
-    return;
-  }
-
-  const workspaceFolder = workspaceFolders[0];
-
-  index.workspaceFilePath = workspaceFolder.uri.fsPath;
+  index.workspaceFilePath = workspacePath;
 
   stopwatch.lap('Initialized');
 
-
-  const folderPaths = (await vscode.workspace.fs.readDirectory(workspaceFolder.uri))
-    .filter(([subfolder]) => ['pages'].includes(subfolder))
-    .map(([subfolder]) => {
-      const filePath = vscode.Uri.joinPath(workspaceFolder.uri, subfolder).fsPath;
-      return {
-        subfolder,
-        filePath
-      };
-    });
+  const folderPaths: { subfolder: string; filePath: string }[] = [];
+  try {
+    const entries = await fs.readDirectory(workspacePath);
+    for (const [subfolder, fileType] of entries) {
+      if (['pages'].includes(subfolder) && fileType === FileType.Directory) {
+        const filePath = fs.joinPath(workspacePath, subfolder);
+        folderPaths.push({ subfolder, filePath });
+      }
+    }
+  } catch (error) {
+    const errorMessage = `Error reading workspace directory: ${error}`;
+    if (fs.showErrorMessage) {
+      await fs.showErrorMessage(errorMessage);
+    } else {
+      console.error(errorMessage);
+    }
+    return;
+  }
 
   for (const { subfolder, filePath } of folderPaths) {
     if (subfolder === 'pages') {
@@ -210,13 +239,25 @@ export async function reindex2() {
     }
   }
 
-  await traverseFolder(vscode.Uri.file(index.pagesFilePath!), index);
+  if (!index.pagesFilePath) {
+    const errorMessage = 'Pages folder not found';
+    if (fs.showErrorMessage) {
+      await fs.showErrorMessage(errorMessage);
+    } else {
+      console.error(errorMessage);
+    }
+    return;
+  }
+
+  await traverseFolder(index.pagesFilePath, index, fs);
   stopwatch.lap('Traversed pages');
 
   readLastEditIndexFromFile();
   stopwatch.lap('Reindexed lastEdit');
 
-  void vscode.commands.executeCommand('zma.refreshexplorers');
+  if (fs.executeCommand) {
+    await fs.executeCommand('zma.refreshexplorers');
+  }
 
   index.isCompleted = true;
   globalIndex2 = index;
@@ -239,7 +280,7 @@ export async function reindex2() {
 
   stopwatch.lap('Added backlinks for unlinked links');
 
-  addLinkAndAliasHeaders(index);
+  await addLinkAndAliasHeaders(index, fs);
 
   stopwatch.lap('link:: headers');
 
@@ -251,40 +292,50 @@ export async function reindex2() {
   stopwatch.printResults();
 }
 
-async function traverseFolder(folderPath: vscode.Uri, index: Index2): Promise<void> {
+async function traverseFolder(folderPath: string, index: Index2, fs: FileSystemAdapter): Promise<void> {
   try {
-    const entries = await vscode.workspace.fs.readDirectory(folderPath);
+    const entries = await fs.readDirectory(folderPath);
 
     for (const [entryName, entryType] of entries) {
-      const entryPath = vscode.Uri.joinPath(folderPath, entryName);
+      const entryPath = fs.joinPath(folderPath, entryName);
 
-      if (entryType === vscode.FileType.File) {
+      if (entryType === FileType.File) {
         if (['.md', '.markdown'].includes(path.extname(entryName).toLowerCase())) {
           try {
-            const fileBuffer = await vscode.workspace.fs.readFile(entryPath);
+            const fileBuffer = await fs.readFile(entryPath);
             const fileContent = new TextDecoder().decode(fileBuffer);
 
-            const preprocessedContent = await preprocessMdFile(fileContent, entryPath.fsPath);
-            const zmaFile = await processMdFile(preprocessedContent, entryPath.fsPath);
+            const preprocessedContent = await preprocessMdFile(fileContent, entryPath, fs);
+            const zmaFile = await processMdFile(preprocessedContent, entryPath);
             index.addFile(zmaFile);
           } catch (fileReadError) {
-            void vscode.window.showErrorMessage(`Error processing file ${entryName}: ${fileReadError}`);
+            const errorMessage = `Error processing file ${entryName}: ${fileReadError}`;
+            if (fs.showErrorMessage) {
+              await fs.showErrorMessage(errorMessage);
+            } else {
+              console.error(errorMessage);
+            }
           }
         }
-      } else if (entryType === vscode.FileType.Directory) {
-        await traverseFolder(entryPath, index);
+      } else if (entryType === FileType.Directory) {
+        await traverseFolder(entryPath, index, fs);
       }
     }
   } catch (error) {
-    void vscode.window.showErrorMessage(`Error traversing folder: ${error}`);
+    const errorMessage = `Error traversing folder: ${error}`;
+    if (fs.showErrorMessage) {
+      await fs.showErrorMessage(errorMessage);
+    } else {
+      console.error(errorMessage);
+    }
   }
 }
 
-async function preprocessMdFile(fileContent: string, filePath: string): Promise<string> {
+async function preprocessMdFile(fileContent: string, filePath: string, fs: FileSystemAdapter): Promise<string> {
   let editedFileContent = fileContent;
 
   if (editedFileContent !== fileContent) {
-    await vscode.workspace.fs.writeFile(vscode.Uri.file(filePath), new TextEncoder().encode(editedFileContent));
+    await fs.writeFile(filePath, new TextEncoder().encode(editedFileContent));
   }
 
   return editedFileContent;
@@ -345,23 +396,34 @@ export async function processMdFile(fileContent: string, filePath: string): Prom
   return zmaFile;
 }
 
-function addLinkAndAliasHeaders(index: Index2) {
-  index.linkLocations().filter(ll => ll.type === LinkType.HREF && ll.url).filter(ll => ll.link.fileExists()).forEach(async ll => {
-    const link = ll.link;
-    const url = ll.url;
-    const uri = vscode.Uri.file(ll.link.filePath());
-    const content = await vscode.workspace.fs.readFile(uri);
-    let contentString = content.toString();
+async function addLinkAndAliasHeaders(index: Index2, fs: FileSystemAdapter) {
+  const linkLocationsWithUrls = index.linkLocations().filter(ll => ll.type === LinkType.HREF && ll.url).filter(ll => ll.link.fileExists());
+  
+  for (const ll of linkLocationsWithUrls) {
+    try {
+      const link = ll.link;
+      const url = ll.url;
+      const filePath = ll.link.filePath();
+      const content = await fs.readFile(filePath);
+      let contentString = new TextDecoder().decode(content);
 
-    const linkHeader = `link:: [${link.linkName()}](${url})`;
-    if (!contentString.includes(linkHeader)) {
-      contentString = linkHeader + '\n' + contentString;
-    }
+      const linkHeader = `link:: [${link.linkName()}](${url})`;
+      if (!contentString.includes(linkHeader)) {
+        contentString = linkHeader + '\n' + contentString;
+      }
 
-    if (contentString !== content.toString()) {
-      await vscode.workspace.fs.writeFile(uri, Buffer.from(contentString));
+      if (contentString !== new TextDecoder().decode(content)) {
+        await fs.writeFile(filePath, new TextEncoder().encode(contentString));
+      }
+    } catch (error) {
+      const errorMessage = `Error adding link header: ${error}`;
+      if (fs.showErrorMessage) {
+        await fs.showErrorMessage(errorMessage);
+      } else {
+        console.error(errorMessage);
+      }
     }
-  });
+  }
 }
 
 export function regexMatches(regex: RegExp, fileContent: string): Array<{
