@@ -1,6 +1,33 @@
-import { bulletRegionLines } from './Decorators';
 import { Link } from './Link';
-import * as vscode from 'vscode';
+
+// Simple position abstraction to replace vscode.Position
+export class Position {
+  constructor(
+    public readonly line: number,
+    public readonly character: number
+  ) {}
+}
+
+// Simple range abstraction to replace vscode.Range
+export class Range {
+  constructor(
+    public readonly start: Position,
+    public readonly end: Position
+  ) {}
+
+  contains(position: Position): boolean {
+    if (position.line < this.start.line || position.line > this.end.line) {
+      return false;
+    }
+    if (position.line === this.start.line && position.character < this.start.character) {
+      return false;
+    }
+    if (position.line === this.end.line && position.character > this.end.character) {
+      return false;
+    }
+    return true;
+  }
+}
 
 export class Location {
   constructor(
@@ -66,7 +93,6 @@ export function parseDate(dateString: string): Date | null {
   return null;
 }
 
-
 class Heading {
   constructor(public readonly prio: number, public readonly text: string) { }
 }
@@ -78,6 +104,34 @@ export class Context {
     public readonly row: string,
     public readonly fullContext: string) { }
 }
+
+// Abstracted bullet region detection without vscode dependency
+export const bulletRegionLines = (text: string): Range[] => {
+  const lines = text.split('\n');
+  var rangeStartLine: number | null = null;
+  const ranges: Range[] = [];
+  lines.forEach((line, index) => {
+    if (rangeStartLine === null) {
+      if (/^\s*-/.test(line)) {
+        rangeStartLine = index;
+      }
+    } else {
+      if (/^-/.test(line)) {
+        ranges.push(new Range(new Position(rangeStartLine, 0), new Position(index - 1, lines[index - 1].length)));
+        rangeStartLine = index;
+      } else if (/^\s+-/.test(line)) {
+        
+      } else {
+        ranges.push(new Range(new Position(rangeStartLine, 0), new Position(index - 1, lines[index - 1].length)));
+        rangeStartLine = null;
+      }
+    }
+  });
+  if (rangeStartLine !== null) {
+    ranges.push(new Range(new Position(rangeStartLine, 0), new Position(lines.length - 1, lines[lines.length - 1].length)));
+  }
+  return ranges;
+};
 
 export const contextForRow = (sourceLink: Link, destinationLinkRaw: string, fileContent: string, rowNumber: number): Context => {
   if(fileContent === 'bla') {
@@ -109,8 +163,8 @@ export const contextForRow = (sourceLink: Link, destinationLinkRaw: string, file
 
   const bulletRegions = bulletRegionLines(fileContent);
   const printRegion = bulletRegions.find((region) =>
-    region.contains(new vscode.Position(rowNumber, 0))
-  )!;
+    region.contains(new Position(rowNumber, 0))
+  );
 
   let fullContext = row;
 
@@ -139,7 +193,6 @@ export const contextForRow = (sourceLink: Link, destinationLinkRaw: string, file
   if (dateRegexOne.test(destinationLinkRaw)) {
     destinationLinkSpecificity = 1;
   }
-
 
   return new Context(headings, date, destinationLinkSpecificity, row, fullContext);
 };
