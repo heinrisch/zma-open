@@ -4,11 +4,21 @@ import { escapeRegExp } from './Util';
 import { RegexPatterns } from './RegexPatterns';
 import { sharedIndex2 } from './Index2';
 import { Link } from './Link';
+import { bulletRegionLines, Range, Position } from './LinkLocation';
 
 interface TextDecorator {
   decorationType: vscode.TextEditorDecorationType;
   apply(editor: vscode.TextEditor): vscode.DecorationOptions[];
 }
+
+// Convert custom Range/Position to vscode Range/Position
+const toVscodePosition = (pos: Position): vscode.Position => {
+  return new vscode.Position(pos.line, pos.character);
+};
+
+const toVscodeRange = (range: Range): vscode.Range => {
+  return new vscode.Range(toVscodePosition(range.start), toVscodePosition(range.end));
+};
 
 const NegativeWordDecorator: TextDecorator = {
   decorationType: vscode.window.createTextEditorDecorationType({
@@ -261,7 +271,7 @@ const LinkBracketDecorator: TextDecorator = createRegexDecorator(
     color: '#dc2626',
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
   }),
-  () => RegExp(/(\[\[)[^\]]+(\]\])/gm),
+  () => RegExp(/(\[\[)[^\]]+((\]\])/gm),
   true
 );
 
@@ -279,7 +289,7 @@ const HrefBracketDecorator: TextDecorator = createRegexDecorator(
     color: '#dc2626',
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
   }),
-  () => RegExp(/(\[)[^[]+(\]\()[^)]*(\))/gm),
+  () => RegExp(/(\[)[^[]+((\]\()[^)]*((\))/gm),
   true
 );
 
@@ -292,39 +302,14 @@ const HrefDecorator: TextDecorator = createRegexDecorator(
   true
 );
 
-export const bulletRegionLines = (text: string): vscode.Range[] => {
-  const lines = text.split('\n');
-  var rangeStartLine: number | null = null;
-  const ranges: vscode.Range[] = [];
-  lines.forEach((line, index) => {
-    if (rangeStartLine === null) {
-      if (/^\s*-/.test(line)) {
-        rangeStartLine = index;
-      }
-    } else {
-      if (/^-/.test(line)) {
-        ranges.push(new vscode.Range(rangeStartLine, 0, index - 1, lines[index - 1].length));
-        rangeStartLine = index;
-      } else if (/^\s+-/.test(line)) {
-        
-      } else {
-        ranges.push(new vscode.Range(rangeStartLine, 0, index - 1, lines[index - 1].length));
-        rangeStartLine = null;
-      }
-    }
-  });
-  if (rangeStartLine !== null) {
-    ranges.push(new vscode.Range(rangeStartLine, 0, lines.length - 1, lines[lines.length - 1].length));
-  }
-  return ranges;
-};
-
 const GeneralBlockDecorator =
   (isEven: boolean) =>
   (editor: vscode.TextEditor): vscode.DecorationOptions[] => {
     const text = editor.document.getText();
     const moduloResult = isEven ? 0 : 1;
-    const evenRegions = bulletRegionLines(text).filter((_, index) => index % 2 === moduloResult);
+    const evenRegions = bulletRegionLines(text)
+      .filter((_, index) => index % 2 === moduloResult)
+      .map(range => toVscodeRange(range));
     return evenRegions.map((range) => ({ range }));
   };
 
