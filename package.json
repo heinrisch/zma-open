@@ -173,7 +173,7 @@
       {
         "command": "zma.commandsonBackspaceKey",
         "key": "backspace",
-        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible && !editorHasMultipleSelections && vim.mode != 'Normal' && vim.mode != 'Visual' && vim.mode != 'VisualBlock' && vim.mode != 'VisualLine' && vim.mode != 'SearchInProgressMode' && vim.mode != 'CommandlineInProgress' && vim.mode != 'Replace' && vim.mode != 'EasyMotionMode' && vim.mode != 'EasyMotionInputMode' && vim.mode != 'SurroundInputMode' && !zma.commandseditor.cursor.inFencedCodeBlock && !zma.commandseditor.cursor.inMathEnv"
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible && !editorHasMultipleSelections && vim.mode != 'Normal' && vim.mode != 'Visual' && vim.mode != 'VisualBlock' && vim.mode != 'VisualLine' && vim.mode != 'SearchInProgressMode' && vim.mode != 'CommandlineInProgress' && vim.mode != 'Replace' && vim.mode != 'EasyMotion Mode' && vim.mode != 'EasyMotionInputMode' && vim.mode != 'SurroundInputMode' && !zma.commandseditor.cursor.inFencedCodeBlock && !zma.commandseditor.cursor.inMathEnv"
       },
       {
         "command": "zma.commandsonIndentLines",
@@ -249,7 +249,7 @@
     "test": "vscode-test",
     "vscode:prepublish": "npm run esbuild-base -- --minify && npm run esbuild-mcp",
     "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
-    "esbuild-mcp": "esbuild ./mcp.ts --bundle --outfile=out/mcp.js --format=cjs --platform=node --banner:js=\"#!/usr/bin/env node\" --external:vscode",
+    "esbuild-mcp": "esbuild ./mcp.ts --bundle --outfile=out/mcp.js --format=cjs --platform=node --external:vscode && echo '#!/usr/bin/env node' | cat - out/mcp.js > temp && mv temp out/mcp.js",
     "esbuild": "npm run esbuild-base -- --sourcemap",
     "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
     "test-compile": "tsc -p ./"
