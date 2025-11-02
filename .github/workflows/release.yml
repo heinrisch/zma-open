@@ -1,4 +1,4 @@
-name: Release VS Code Extension
+name: Release VS Code Extension and MCP Server
 
 on:
   push:
@@ -24,13 +24,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build Extension and MCP
+        run: |
+          npm run esbuild-base -- --minify
+          npm run esbuild-mcp
+
       - name: Package VSIX
         run: npx --yes @vscode/vsce package
 
-      - name: Create GitHub Release with asset
+      - name: Archive MCP server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-server
+          path: out/mcp.js
+
+      - name: Create GitHub Release with assets
         uses: softprops/action-gh-release@v2
         if: github.ref_type == 'tag'
         with:
           files: |
             *.vsix
+            out/mcp.js
           generate_release_notes: true
