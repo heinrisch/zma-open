@@ -13,8 +13,8 @@ import { HashTagProvider } from './HashtagExplorer';
 import { TextDocumentContentChangeEvent } from 'vscode';
 import { activateDocumentSymbolProvider } from './SymbolProvidor';
 import { activateTodayIndicator } from './TodayIndicator';
-import { activateTasks } from './Tasks';
-import { processMdFile, reindex2, sharedIndex2 } from './Index2';
+import { activateTasks } from './TasksVscode';
+import { processMdFile, reindex2, sharedIndex2 } from './Index2Compat';
 import { activateCliActions } from './CliAction';
 import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
 
@@ -130,7 +130,8 @@ export async function activate(context: vscode.ExtensionContext) {
     const fileContent = document.getText();
     const filePath = document.uri.fsPath;
 
-    const zmaFile = await processMdFile(fileContent, filePath);
+    const workspacePath = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    const zmaFile = await processMdFile(fileContent, filePath, workspacePath);
     sharedIndex2().addFile(zmaFile);
 
     backlinkProvider.refresh();
@@ -158,7 +159,7 @@ async function ensurePagesFolderAndIntroduction(context: vscode.ExtensionContext
       await vscode.workspace.fs.createDirectory(pagesFolderPath);
       const introductionContent = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(context.extensionUri, 'media', 'introduction.md'));
       await vscode.workspace.fs.writeFile(introductionFilePath, introductionContent);
-      vscode.window.showInformationMessage('Created \"pages\" folder and \"introduction.md\"');
+      vscode.window.showInformationMessage('Created "pages" folder and "introduction.md"');
       const document = await vscode.workspace.openTextDocument(introductionFilePath);
       await vscode.window.showTextDocument(document);
     } else {
