@@ -266,42 +266,6 @@ const QuestionDecorator: TextDecorator = createRegexDecorator(
   () => /^\s*- QUESTION\s/gm
 );
 
-const LinkBracketDecorator: TextDecorator = createRegexDecorator(
-  vscode.window.createTextEditorDecorationType({
-    color: '#dc2626',
-    rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
-  }),
-  () => RegExp(/(\[\[)[^\]]+((\]\])/gm),
-  true
-);
-
-const LinkDecorator: TextDecorator = createRegexDecorator(
-  vscode.window.createTextEditorDecorationType({
-    color: '#d97706',
-    fontWeight: 'bold'
-  }),
-  RegexPatterns.RE_LINKS,
-  true
-);
-
-const HrefBracketDecorator: TextDecorator = createRegexDecorator(
-  vscode.window.createTextEditorDecorationType({
-    color: '#dc2626',
-    rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
-  }),
-  () => RegExp(/(\[)[^[]+((\]\()[^)]*((\))/gm),
-  true
-);
-
-const HrefDecorator: TextDecorator = createRegexDecorator(
-  vscode.window.createTextEditorDecorationType({
-    color: '#f97316',
-    fontWeight: 'bold'
-  }),
-  RegexPatterns.RE_HREF,
-  true
-);
-
 const GeneralBlockDecorator =
   (isEven: boolean) =>
   (editor: vscode.TextEditor): vscode.DecorationOptions[] => {
@@ -411,10 +375,6 @@ export function activateDecorator(context: vscode.ExtensionContext) {
       DoneDecorator,
       ThoughtDecorator,
       QuestionDecorator,
-      //LinkDecorator,
-      //HrefDecorator,
-      //LinkBracketDecorator,
-      //HrefBracketDecorator,
     ].forEach((decorator) => {
       activeEditor!.setDecorations(decorator.decorationType, []);
       activeEditor!.setDecorations(decorator.decorationType, decorator.apply(activeEditor!));

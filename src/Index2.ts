@@ -8,7 +8,6 @@ import { findAndCreateTasks, Task, TaskState } from './Tasks';
 import { escapeRegExp } from './Util';
 import { readLastEditIndexFromFile } from './LastEditHandler';
 
-// Abstraction layer for file system operations
 export interface FileSystemAdapter {
   saveAll?(): Promise<void>;
   readDirectory(uri: string): Promise<[string, FileType][]>;
@@ -24,7 +23,6 @@ export enum FileType {
   Directory = 2
 }
 
-// Workspace abstraction
 export interface WorkspaceAdapter {
   workspaceFolders?: { uri: { fsPath: string } }[];
   getWorkspacePath(): string | null;
@@ -254,10 +252,6 @@ export async function reindex2(fs: FileSystemAdapter, workspace: WorkspaceAdapte
 
   readLastEditIndexFromFile();
   stopwatch.lap('Reindexed lastEdit');
-
-  if (fs.executeCommand) {
-    await fs.executeCommand('zma.refreshexplorers');
-  }
 
   index.isCompleted = true;
   globalIndex2 = index;

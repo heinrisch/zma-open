@@ -5,7 +5,7 @@ import { formatAllFiles } from './MarkdownFormatter';
 import { createFileIfNotExists, quickOpenLink } from './QuickOpenLink';
 import { quickOpenHref } from './QuickOpenHref';
 import { remakeLastEditIndex } from './LastEditHandler';
-import { reindex2 } from './Index2';
+import { reindex2 } from './Index2Compat';
 
 export const activateCommands = (context: vscode.ExtensionContext, resetProviders: () => void) => {
   context.subscriptions.push(
