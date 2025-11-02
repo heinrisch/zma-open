@@ -1,0 +1,38 @@
+{
+  "name": "zma-standalone",
+  "version": "1.0.0",
+  "description": "Standalone version of ZMA note management system without VSCode dependencies",
+  "main": "dist/src/Index2.js",
+  "types": "dist/src/Index2.d.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig-standalone.json",
+    "test": "node dist/examples/standalone-usage.js",
+    "example": "node dist/examples/standalone-usage.js"
+  },
+  "keywords": [
+    "notes",
+    "markdown",
+    "knowledge-management",
+    "standalone",
+    "typescript"
+  ],
+  "author": "Henrik Sandström",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist/src/Index2.js",
+    "dist/src/Index2.d.ts",
+    "dist/src/LinkLocation.js",
+    "dist/src/LinkLocation.d.ts",
+    "dist/src/Tasks.js",
+    "dist/src/Tasks.d.ts",
+    "dist/src/adapters/**",
+    "dist/examples/**",
+    "README-Index2.md"
+  ]
+}
