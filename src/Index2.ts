@@ -249,7 +249,7 @@ export async function reindex2(fs: FileSystemAdapter, workspace: WorkspaceAdapte
     return;
   }
 
-  await traverseFolder(index.pagesFilePath, index, fs);
+  await traverseFolder(index.pagesFilePath, index, fs, workspacePath);
   stopwatch.lap('Traversed pages');
 
   readLastEditIndexFromFile();
@@ -292,7 +292,7 @@ export async function reindex2(fs: FileSystemAdapter, workspace: WorkspaceAdapte
   stopwatch.printResults();
 }
 
-async function traverseFolder(folderPath: string, index: Index2, fs: FileSystemAdapter): Promise<void> {
+async function traverseFolder(folderPath: string, index: Index2, fs: FileSystemAdapter, workspacePath: string): Promise<void> {
   try {
     const entries = await fs.readDirectory(folderPath);
 
@@ -306,7 +306,7 @@ async function traverseFolder(folderPath: string, index: Index2, fs: FileSystemA
             const fileContent = new TextDecoder().decode(fileBuffer);
 
             const preprocessedContent = await preprocessMdFile(fileContent, entryPath, fs);
-            const zmaFile = await processMdFile(preprocessedContent, entryPath);
+            const zmaFile = await processMdFile(preprocessedContent, entryPath, workspacePath);
             index.addFile(zmaFile);
           } catch (fileReadError) {
             const errorMessage = `Error processing file ${entryName}: ${fileReadError}`;
@@ -318,7 +318,7 @@ async function traverseFolder(folderPath: string, index: Index2, fs: FileSystemA
           }
         }
       } else if (entryType === FileType.Directory) {
-        await traverseFolder(entryPath, index, fs);
+        await traverseFolder(entryPath, index, fs, workspacePath);
       }
     }
   } catch (error) {
@@ -341,7 +341,7 @@ async function preprocessMdFile(fileContent: string, filePath: string, fs: FileS
   return editedFileContent;
 }
 
-export async function processMdFile(fileContent: string, filePath: string): Promise<ZmaFile> {
+export async function processMdFile(fileContent: string, filePath: string, workspacePath?: string): Promise<ZmaFile> {
   const link = Link.fromFilePath(filePath);
   const zmaFile = new ZmaFile(link, fileContent);
 
@@ -391,7 +391,7 @@ export async function processMdFile(fileContent: string, filePath: string): Prom
     zmaFile.linkLocations.push(ll);
   });
 
-  zmaFile.tasks = findAndCreateTasks(link, fileContent);
+  zmaFile.tasks = findAndCreateTasks(link, fileContent, workspacePath);
 
   return zmaFile;
 }
