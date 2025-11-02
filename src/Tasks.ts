@@ -1,47 +1,12 @@
 import path = require('path');
 import * as fs from 'fs';
-import * as vscode from 'vscode';
 import { Link } from './Link';
 import { RegexPatterns } from './RegexPatterns';
-import { TaskLink, TaskProvider } from './TaskExplorer';
-import { regexMatches, sharedIndex2 } from './Index2';
+import { regexMatches } from './Index2';
 import { Location } from './LinkLocation';
 
-export const activateTasks = (): TaskProvider => {
-  const tasksNodeProvider = new TaskProvider();
-  vscode.window.registerTreeDataProvider('tasks', tasksNodeProvider);
-
-  let timeout: NodeJS.Timeout | null = null;
-  const refresh = () => {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-    timeout = setTimeout(() => tasksNodeProvider.refresh(), 500);
-  };
-
-
-  vscode.commands.registerCommand('zma.taskLink.snooze1Day', (task: TaskLink) => {
-    snoozeTask(task.task.id, 1);
-    refresh();
-  });
-
-  vscode.commands.registerCommand('zma.taskLink.resetsnooze', (task: TaskLink) => {
-    resetSnooze(task.task.id);
-    refresh();
-  });
-
-  vscode.commands.registerCommand('zma.taskLink.plusprio', (task: TaskLink) => {
-    prioTask(task.task.id, 1);
-    refresh();
-  });
-
-  vscode.commands.registerCommand('zma.taskLink.minusprio', (task: TaskLink) => {
-    prioTask(task.task.id, -1);
-    refresh();
-  });
-
-  return tasksNodeProvider;
-};
+// TaskExplorer and VSCode-specific imports remain in separate file for VSCode extension
+// This file contains only the core task functionality needed by Index2
 
 export enum TaskState {
   Todo = 'TODO',
@@ -54,7 +19,7 @@ export class Task {
   public taskWithoutState: string = '';
   public id: string;
 
-  constructor(public full: string, public location: Location) {
+  constructor(public full: string, public location: Location, private taskDataPath?: string) {
     this.full = full.trim();
     this.location = location;
     this.state = this.parseState();
@@ -66,7 +31,7 @@ export class Task {
   }
 
   public getGroup(): string | null {
-    const taskData = getTaskData(this.id);
+    const taskData = getTaskData(this.id, this.taskDataPath);
     if (taskData.getSnoozeUntil() > new Date()) {
       return 'Snoozed';
     } else {
@@ -95,7 +60,7 @@ export class Task {
   }
 
   public prio(): number {
-    const taskData = getTaskData(this.id);
+    const taskData = getTaskData(this.id, this.taskDataPath);
 
     const differenceInMilliseconds = new Date().getTime() - taskData.getCreatedAt().getTime();
     const millisecondsPerHour = 1000 * 60 * 60;
@@ -108,29 +73,30 @@ export class Task {
   }
 }
 
-export const findAndCreateTasks = (sourceLink: Link, fileContent: string): Task[] => {
+export const findAndCreateTasks = (sourceLink: Link, fileContent: string, taskDataPath?: string): Task[] => {
   const taskMatches = regexMatches(RegexPatterns.RE_TASK(), fileContent);
   return taskMatches.map(match => {
     const full = match.fullMatch;
     const location = new Location(sourceLink, match.row, match.column);
 
-    const task = new Task(full, location);
+    const task = new Task(full, location, taskDataPath);
 
-    const td = getTaskData(task.id);
+    const td = getTaskData(task.id, taskDataPath);
     const differenceInMilliseconds = Math.abs(td.getCreatedAt().getTime() - td.getDoneAt().getTime());
     if(task.state === TaskState.Done && differenceInMilliseconds < 1000*10) {
-      setDoneNow(task.id);
+      setDoneNow(task.id, taskDataPath);
     }
 
     return task;
   });
 };
 
-// Snooze
-const taskDataFile = path.join(vscode.workspace.workspaceFolders?.[0].uri.fsPath || '', 'task-data.json');
+// Task data management (abstracted to work without vscode)
 let taskDatas: TaskData[] = [];
 
-export const getTaskData = (taskId: string): TaskData => {
+export const getTaskData = (taskId: string, taskDataPath?: string): TaskData => {
+  const taskDataFile = getTaskDataFile(taskDataPath);
+  
   if (taskDatas.length === 0) {
     if (fs.existsSync(taskDataFile)) {
       const content = fs.readFileSync(taskDataFile, 'utf-8');
@@ -147,14 +113,22 @@ export const getTaskData = (taskId: string): TaskData => {
 
   const taskData = new TaskData(taskId);
   taskDatas.push(taskData);
-  saveTaskData();
+  saveTaskData(taskDataPath);
 
   return taskData;
 };
 
-const saveTaskData = () => {
-  fs.writeFileSync(taskDataFile, JSON.stringify(taskDatas));
+const getTaskDataFile = (taskDataPath?: string): string => {
+  if (taskDataPath) {
+    return path.join(taskDataPath, 'task-data.json');
+  }
+  // Fallback for when no path is provided - this will be overridden in vscode environment
+  return path.join(process.cwd(), 'task-data.json');
+};
 
+const saveTaskData = (taskDataPath?: string) => {
+  const taskDataFile = getTaskDataFile(taskDataPath);
+  fs.writeFileSync(taskDataFile, JSON.stringify(taskDatas));
   taskDatas = [];
 };
 
@@ -180,9 +154,9 @@ class TaskData {
   }
 }
 
-const resetSnooze = (taskId: string) => {
+const resetSnooze = (taskId: string, taskDataPath?: string) => {
   taskDatas = [];
-  getTaskData(taskId);
+  getTaskData(taskId, taskDataPath);
 
   taskDatas = taskDatas.map((td) => {
     if (td.taskId === taskId) {
@@ -191,12 +165,12 @@ const resetSnooze = (taskId: string) => {
     return td;
   });
 
-  saveTaskData();
+  saveTaskData(taskDataPath);
 };
 
-const setDoneNow = (taskId: string) => {
+const setDoneNow = (taskId: string, taskDataPath?: string) => {
   taskDatas = [];
-  getTaskData(taskId);
+  getTaskData(taskId, taskDataPath);
 
   taskDatas = taskDatas.map((td) => {
     if (td.taskId === taskId) {
@@ -205,13 +179,13 @@ const setDoneNow = (taskId: string) => {
     return td;
   });
 
-  saveTaskData();
+  saveTaskData(taskDataPath);
 };
 
-const snoozeTask = (taskId: string, days: number) => {
+const snoozeTask = (taskId: string, days: number, taskDataPath?: string) => {
   // Reload tasks
   taskDatas = [];
-  getTaskData(taskId);
+  getTaskData(taskId, taskDataPath);
 
   taskDatas = taskDatas.map((td) => {
     if (td.taskId === taskId) {
@@ -225,13 +199,13 @@ const snoozeTask = (taskId: string, days: number) => {
     return td;
   });
 
-  saveTaskData();
+  saveTaskData(taskDataPath);
 };
 
-const prioTask = (taskId: string, value: number) => {
+const prioTask = (taskId: string, value: number, taskDataPath?: string) => {
   // Reload tasks
   taskDatas = [];
-  getTaskData(taskId);
+  getTaskData(taskId, taskDataPath);
   taskDatas = taskDatas.map((td) => {
     if (td.taskId === taskId) {
       td.prio += value;
@@ -239,5 +213,8 @@ const prioTask = (taskId: string, value: number) => {
     return td;
   });
 
-  saveTaskData();
+  saveTaskData(taskDataPath);
 };
+
+// Export utility functions for external use (like VSCode extension)
+export { resetSnooze, setDoneNow, snoozeTask, prioTask };
