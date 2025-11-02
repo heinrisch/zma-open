@@ -247,16 +247,18 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
-    "vscode:prepublish": "npm run esbuild-base -- --minify && npm run esbuild-mcp",
+    "vscode:prepublish": "npm run esbuild-base -- --minify && npm run esbuild-mcp-standalone",
     "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
     "esbuild-mcp": "esbuild ./mcp.ts --bundle --outfile=out/mcp.js --format=cjs --platform=node --external:vscode",
+    "esbuild-mcp-standalone": "esbuild ./mcp-standalone.ts --bundle --outfile=out/mcp-standalone.js --format=cjs --platform=node",
     "esbuild": "npm run esbuild-base -- --sourcemap",
     "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
     "test-compile": "tsc -p ./"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "glob": "^11.0.0"
   },
   "devDependencies": {
     "@types/node": "24.8.*",
