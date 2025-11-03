@@ -17,6 +17,7 @@ import { activateTasks } from './Tasks';
 import { processMdFile, reindex2, sharedIndex2 } from './Index2';
 import { activateCliActions } from './CliAction';
 import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
+import { getLinkColorsManager, disposeLinkColorsManager } from './LinkColors';
 
 export async function activate(context: vscode.ExtensionContext) {
   console.log('ZMA Extension: activate function called!');
@@ -24,6 +25,10 @@ export async function activate(context: vscode.ExtensionContext) {
   await ensurePagesFolderAndIntroduction(context);
 
   await reindex2();
+
+  // Initialize link colors manager
+  getLinkColorsManager();
+  console.log('Link Colors Manager initialized');
 
   activateListEditing(context);
   activateKeyboardShortcuts(context);
@@ -141,6 +146,12 @@ export async function activate(context: vscode.ExtensionContext) {
   console.log('ZMA is now active!');
 }
 
+export function deactivate() {
+  // Clean up link colors manager on deactivation
+  disposeLinkColorsManager();
+  console.log('ZMA Extension deactivated and cleaned up');
+}
+
 async function ensurePagesFolderAndIntroduction(context: vscode.ExtensionContext): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -158,7 +169,7 @@ async function ensurePagesFolderAndIntroduction(context: vscode.ExtensionContext
       await vscode.workspace.fs.createDirectory(pagesFolderPath);
       const introductionContent = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(context.extensionUri, 'media', 'introduction.md'));
       await vscode.workspace.fs.writeFile(introductionFilePath, introductionContent);
-      vscode.window.showInformationMessage('Created \"pages\" folder and \"introduction.md\"');
+      vscode.window.showInformationMessage('Created "pages" folder and "introduction.md"');
       const document = await vscode.workspace.openTextDocument(introductionFilePath);
       await vscode.window.showTextDocument(document);
     } else {
