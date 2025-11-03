@@ -22,7 +22,7 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
             textDecoration: 'none; opacity: 0;',
             letterSpacing: '-1em',
             after: {
-                contentText: '-',
+                contentText: '…',
                 color: new vscode.ThemeColor('editor.foreground'),
                 margin: '0',
             },
@@ -88,10 +88,8 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
     }
 
     private getUrlColor(url: string): string {
-     
-            const classification = this.urlClassifier.classify(url);
-            return AssetTypeColors[classification.assetType]
-       
+        const classification = this.urlClassifier.classify(url);
+        return AssetTypeColors[classification.assetType];
     }
 
     private getLinkColor(rawLink: string): string {
@@ -102,8 +100,66 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
 
         const url = urls[0];
         const classification = this.urlClassifier.classify(url);
-        return AssetTypeColors[classification.assetType] 
-    
+        return AssetTypeColors[classification.assetType];
+    }
+
+    private willUrlWrap(editor: vscode.TextEditor, urlRange: vscode.Range, url: string): boolean {
+        const startPos = urlRange.start;
+        const endPos = urlRange.end;
+        
+        // If URL spans multiple document lines, it definitely wraps
+        if (startPos.line !== endPos.line) return true;
+        
+        // Get editor configuration for word wrap
+        const config = vscode.workspace.getConfiguration('editor');
+        const wordWrapColumn = config.get<number>('wordWrapColumn') || 80;
+        const rulers = config.get<number[]>('rulers') || [];
+        const effectiveWrapColumn = rulers.length > 0 ? Math.min(...rulers) : wordWrapColumn;
+        
+        // Check if URL is long enough to likely cause wrapping
+        const lineText = editor.document.lineAt(startPos.line).text;
+        const urlStartChar = startPos.character;
+        const urlLength = url.length;
+        
+        // If URL would extend beyond typical wrap point, it likely wraps
+        return (urlStartChar + urlLength) > effectiveWrapColumn || url.length > 50;
+    }
+
+    private handleLongUrl(url: string, urlRange: vscode.Range, linkTextRange: vscode.Range): vscode.DecorationOptions {
+        // For long URLs that might wrap, create abbreviated version
+        const maxDisplayLength = 30;
+        let displayUrl = url;
+        
+        if (url.length > maxDisplayLength) {
+            const start = url.substring(0, 15);
+            const end = url.substring(url.length - 10);
+            displayUrl = `${start}…${end}`;
+        }
+        
+        return {
+            range: urlRange,
+            renderOptions: {
+                after: {
+                    contentText: `${displayUrl})`,
+                    color: new vscode.ThemeColor('editor.foreground'),
+                    opacity: '0.8',
+                    fontStyle: 'italic'
+                }
+            }
+        };
+    }
+
+    private addColoredDecoration(coloredByHex: Map<string, vscode.DecorationOptions[]>, color: string, range: vscode.Range) {
+        if (!coloredByHex.has(color)) {
+            coloredByHex.set(color, []);
+        }
+        coloredByHex.get(color)!.push({ range });
+    }
+
+    private clearAllDecorations(editor: vscode.TextEditor) {
+        editor.setDecorations(this.hiddenDeco, []);
+        editor.setDecorations(this.weakRevealDeco, []);
+        this.coloredDecos.forEach((deco) => editor.setDecorations(deco, []));
     }
 
     private update() {
@@ -112,9 +168,7 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
 
         const doc = editor.document;
         if (!this.enabled) {
-            editor.setDecorations(this.hiddenDeco, []);
-            editor.setDecorations(this.weakRevealDeco, []);
-            this.coloredDecos.forEach((deco) => editor.setDecorations(deco, []));
+            this.clearAllDecorations(editor);
             return;
         }
 
@@ -147,16 +201,20 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
 
             if (urlRange.start.line === cursorLine || urlRange.end.line === cursorLine) continue;
 
-            hidden.push({ range: urlRange });
-
             const url = m[2];
-            const color = this.getUrlColor(url);
-            if (!coloredByHex.has(color)) {
-                coloredByHex.set(color, []);
+            
+            // Check if URL will likely wrap and handle accordingly
+            if (this.willUrlWrap(editor, urlRange, url)) {
+                // For long/wrapping URLs, use abbreviated display instead of simple hiding
+                const decoration = this.handleLongUrl(url, urlRange, linkTextRange);
+                hidden.push(decoration);
+            } else {
+                // Normal short URL - hide completely
+                hidden.push({ range: urlRange });
             }
-            coloredByHex.get(color)!.push({
-                range: linkTextRange,
-            });
+
+            const color = this.getUrlColor(url);
+            this.addColoredDecoration(coloredByHex, color, linkTextRange);
         }
 
         // Process wikimarkdown links
@@ -179,14 +237,8 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
             weak.push({ range: openBracketRange });
             weak.push({ range: closeBracketRange });
 
-     
             const color = this.getLinkColor(linkRaw);
-            if (!coloredByHex.has(color)) {
-                coloredByHex.set(color, []);
-            }
-            coloredByHex.get(color)!.push({
-                range: contentRange,
-            });
+            this.addColoredDecoration(coloredByHex, color, contentRange);
         }
 
         editor.setDecorations(this.hiddenDeco, hidden);
