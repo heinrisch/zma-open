@@ -4,11 +4,16 @@ import { escapeRegExp } from './Util';
 import { RegexPatterns } from './RegexPatterns';
 import { sharedIndex2 } from './Index2';
 import { Link } from './Link';
+import { getLinkColorsManager, extractHexColorsFromText, isValidHexColor } from './LinkColors';
 
 interface TextDecorator {
   decorationType: vscode.TextEditorDecorationType;
   apply(editor: vscode.TextEditor): vscode.DecorationOptions[];
 }
+
+// Cache for dynamic decoration types to avoid creating too many
+const linkColorDecorationCache = new Map<string, vscode.TextEditorDecorationType>();
+const hexColorDecorationCache = new Map<string, vscode.TextEditorDecorationType>();
 
 const NegativeWordDecorator: TextDecorator = {
   decorationType: vscode.window.createTextEditorDecorationType({
@@ -161,6 +166,106 @@ const LinkHasFileDecorator: TextDecorator = {
   }
 };
 
+// New Individual Link Color Decorator
+const IndividualLinkColorDecorator: TextDecorator = {
+  decorationType: vscode.window.createTextEditorDecorationType({}), // Placeholder, actual decorations are dynamic
+  apply(editor: vscode.TextEditor): vscode.DecorationOptions[] {
+    const linkColorsManager = getLinkColorsManager();
+    const allColors = linkColorsManager.getAllColors();
+    
+    // Group decorations by color to apply them efficiently
+    const decorationsByColor = new Map<string, vscode.DecorationOptions[]>();
+    
+    const text = editor.document.getText();
+    const allRawLinks = new Set<string>();
+    sharedIndex2().fileForFilePath(editor.document.uri.fsPath)?.linkLocations.forEach(ll => {
+      allRawLinks.add(ll.link.linkName());
+    });
+
+    // Process each link and apply colors if configured
+    Array.from(allRawLinks).forEach((link) => {
+      const color = allColors[link];
+      if (!color || !isValidHexColor(color)) {
+        return; // Skip if no color defined or invalid color
+      }
+
+      const regex = new RegExp(escapeRegExp(link), 'g');
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        const startPos = editor.document.positionAt(match.index);
+        const endPos = editor.document.positionAt(match.index + match[0].length);
+        
+        const decoration = {
+          range: new vscode.Range(startPos, endPos)
+        };
+
+        if (!decorationsByColor.has(color)) {
+          decorationsByColor.set(color, []);
+        }
+        decorationsByColor.get(color)!.push(decoration);
+      }
+    });
+
+    // Apply decorations for each color
+    decorationsByColor.forEach((decorations, color) => {
+      let decorationType = linkColorDecorationCache.get(color);
+      if (!decorationType) {
+        decorationType = vscode.window.createTextEditorDecorationType({
+          color: color,
+          fontWeight: 'bold'
+        });
+        linkColorDecorationCache.set(color, decorationType);
+      }
+      
+      editor.setDecorations(decorationType, decorations);
+    });
+
+    return []; // Return empty array since we handle decorations directly
+  }
+};
+
+// New Hex Color Decorator
+const HexColorDecorator: TextDecorator = {
+  decorationType: vscode.window.createTextEditorDecorationType({}), // Placeholder, actual decorations are dynamic
+  apply(editor: vscode.TextEditor): vscode.DecorationOptions[] {
+    const text = editor.document.getText();
+    const hexColors = extractHexColorsFromText(text);
+    
+    // Group decorations by color
+    const decorationsByColor = new Map<string, vscode.DecorationOptions[]>();
+    
+    hexColors.forEach(({ color, startIndex, endIndex }) => {
+      const startPos = editor.document.positionAt(startIndex);
+      const endPos = editor.document.positionAt(endIndex);
+      
+      const decoration = {
+        range: new vscode.Range(startPos, endPos)
+      };
+
+      if (!decorationsByColor.has(color)) {
+        decorationsByColor.set(color, []);
+      }
+      decorationsByColor.get(color)!.push(decoration);
+    });
+
+    // Apply decorations for each color
+    decorationsByColor.forEach((decorations, color) => {
+      let decorationType = hexColorDecorationCache.get(color);
+      if (!decorationType) {
+        decorationType = vscode.window.createTextEditorDecorationType({
+          color: color,
+          fontWeight: 'bold'
+        });
+        hexColorDecorationCache.set(color, decorationType);
+      }
+      
+      editor.setDecorations(decorationType, decorations);
+    });
+
+    return []; // Return empty array since we handle decorations directly
+  }
+};
+
 const createRegexDecorator = (
   decorationType: vscode.TextEditorDecorationType,
   regexCreator: () => RegExp,
@@ -279,7 +384,7 @@ const HrefBracketDecorator: TextDecorator = createRegexDecorator(
     color: '#dc2626',
     rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
   }),
-  () => RegExp(/(\[)[^[]+(\]\()[^)]*(\))/gm),
+  () => RegExp(/(\[)[^[]+(\ ]\()[^)]*(\))/gm),
   true
 );
 
@@ -401,6 +506,15 @@ const BulletOddDecorator: TextDecorator = {
   apply: GeneralBulletLineDecorator(false)
 };
 
+// Function to clear cached decoration types
+function clearDecorationCaches() {
+  linkColorDecorationCache.forEach(decoration => decoration.dispose());
+  linkColorDecorationCache.clear();
+  
+  hexColorDecorationCache.forEach(decoration => decoration.dispose());
+  hexColorDecorationCache.clear();
+}
+
 export function activateDecorator(context: vscode.ExtensionContext) {
   let timeout: NodeJS.Timer | undefined = undefined;
   let activeEditor = vscode.window.activeTextEditor;
@@ -411,6 +525,14 @@ export function activateDecorator(context: vscode.ExtensionContext) {
       return;
     }
     const startTime = Date.now();
+
+    // Clear previous dynamic decorations
+    linkColorDecorationCache.forEach(decoration => {
+      activeEditor!.setDecorations(decoration, []);
+    });
+    hexColorDecorationCache.forEach(decoration => {
+      activeEditor!.setDecorations(decoration, []);
+    });
 
     [
       NegativeWordDecorator,
@@ -426,6 +548,8 @@ export function activateDecorator(context: vscode.ExtensionContext) {
       DoneDecorator,
       ThoughtDecorator,
       QuestionDecorator,
+      IndividualLinkColorDecorator, // New individual link color decorator
+      HexColorDecorator, // New hex color decorator
       //LinkDecorator,
       //HrefDecorator,
       //LinkBracketDecorator,
@@ -477,5 +601,10 @@ export function activateDecorator(context: vscode.ExtensionContext) {
     context.subscriptions
   );
 
-  console.log('Activated decorations');
+  // Clean up on extension deactivation
+  context.subscriptions.push({
+    dispose: clearDecorationCaches
+  });
+
+  console.log('Activated decorations with individual link colors and hex color support');
 }
