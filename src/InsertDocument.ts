@@ -24,80 +24,115 @@ export function activateInsertDocument(context: vscode.ExtensionContext) {
 }
 
 async function showDocumentInsertDialog(): Promise<DocumentInsertData | undefined> {
-    // Get title
-    const title = await vscode.window.showInputBox({
-        prompt: 'Enter document title',
-        placeHolder: 'Document title',
-        validateInput: (value) => {
-            if (!value || value.trim().length === 0) {
-                return 'Title is required';
-            }
-            return null;
-        }
-    });
-    
-    if (!title) {
-        return undefined;
-    }
-
-    // Get URL
-    const url = await vscode.window.showInputBox({
-        prompt: 'Enter document URL (optional)',
-        placeHolder: 'https://example.com/document'
-    });
-
-    // Get content
-    const content = await vscode.window.showInputBox({
-        prompt: 'Enter document content',
-        placeHolder: 'Document content or paste text here',
-        validateInput: (value) => {
-            if (!value || value.trim().length === 0) {
-                return 'Content is required';
-            }
-            return null;
-        }
-    });
-    
-    if (!content) {
-        return undefined;
-    }
-
-    // Get CLI action (optional)
     const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-    let cliAction: string | undefined;
+    let cliActions: CliAction[] = [];
     
     if (folder) {
         const cliActionsPath = path.join(folder, "cli-actions");
-        const actions = loadCliActions(cliActionsPath);
-        
-        if (actions.length > 0) {
-            const selectedAction = await vscode.window.showQuickPick(
-                [
-                    { label: '$(clear-all) None', description: 'No CLI action', value: undefined },
-                    ...actions.map(action => ({
-                        label: `$(tools) ${action.name}`,
-                        description: action.description,
-                        value: action.name
-                    }))
-                ],
-                { 
-                    placeHolder: 'Select CLI action to run on content (optional)',
-                    ignoreFocusOut: true
-                }
-            );
-            
-            if (selectedAction) {
-                cliAction = selectedAction.value;
-            }
-        }
+        cliActions = loadCliActions(cliActionsPath);
     }
 
-    return {
-        title: title.trim(),
-        url: url?.trim() || '',
-        content: content.trim(),
-        cliAction
-    };
+    // Create input fields
+    const titleInput = vscode.window.createInputBox();
+    titleInput.title = 'Insert Document';
+    titleInput.step = 1;
+    titleInput.totalSteps = 4;
+    titleInput.placeholder = 'Document title';
+    titleInput.prompt = 'Enter document title';
+    titleInput.ignoreFocusOut = true;
+
+    const urlInput = vscode.window.createInputBox();
+    urlInput.title = 'Insert Document';
+    urlInput.step = 2;
+    urlInput.totalSteps = 4;
+    urlInput.placeholder = 'https://example.com/document (optional)';
+    urlInput.prompt = 'Enter document URL (optional)';
+    urlInput.ignoreFocusOut = true;
+
+    const contentInput = vscode.window.createInputBox();
+    contentInput.title = 'Insert Document';
+    contentInput.step = 3;
+    contentInput.totalSteps = 4;
+    contentInput.placeholder = 'Document content or paste text here';
+    contentInput.prompt = 'Enter document content';
+    contentInput.ignoreFocusOut = true;
+
+    const cliActionPicker = vscode.window.createQuickPick();
+    cliActionPicker.title = 'Insert Document';
+    cliActionPicker.step = 4;
+    cliActionPicker.totalSteps = 4;
+    cliActionPicker.placeholder = 'Select CLI action to run on content (optional)';
+    cliActionPicker.ignoreFocusOut = true;
+    cliActionPicker.items = [
+        { label: '$(clear-all) None', description: 'No CLI action' },
+        ...cliActions.map(action => ({
+            label: `$(tools) ${action.name}`,
+            description: action.description
+        }))
+    ];
+
+    return new Promise((resolve) => {
+        let title = '';
+        let url = '';
+        let content = '';
+        let cliAction: string | undefined;
+
+        titleInput.onDidAccept(() => {
+            if (!titleInput.value || titleInput.value.trim().length === 0) {
+                titleInput.validationMessage = 'Title is required';
+                return;
+            }
+            title = titleInput.value.trim();
+            titleInput.hide();
+            urlInput.show();
+        });
+
+        titleInput.onDidHide(() => titleInput.dispose());
+
+        urlInput.onDidAccept(() => {
+            url = urlInput.value?.trim() || '';
+            urlInput.hide();
+            contentInput.show();
+        });
+
+        urlInput.onDidHide(() => urlInput.dispose());
+
+        contentInput.onDidAccept(() => {
+            if (!contentInput.value || contentInput.value.trim().length === 0) {
+                contentInput.validationMessage = 'Content is required';
+                return;
+            }
+            content = contentInput.value.trim();
+            contentInput.hide();
+            
+            if (cliActions.length > 0) {
+                cliActionPicker.show();
+            } else {
+                resolve({ title, url, content, cliAction });
+            }
+        });
+
+        contentInput.onDidHide(() => contentInput.dispose());
+
+        cliActionPicker.onDidAccept(() => {
+            const selectedItem = cliActionPicker.selectedItems[0];
+            if (selectedItem && !selectedItem.label.includes('None')) {
+                cliAction = selectedItem.label.replace('$(tools) ', '');
+            }
+            cliActionPicker.hide();
+            resolve({ title, url, content, cliAction });
+        });
+
+        cliActionPicker.onDidHide(() => cliActionPicker.dispose());
+
+        // Handle cancellation
+        titleInput.onDidTriggerButton(() => resolve(undefined));
+        urlInput.onDidTriggerButton(() => resolve(undefined));
+        contentInput.onDidTriggerButton(() => resolve(undefined));
+        cliActionPicker.onDidTriggerButton(() => resolve(undefined));
+
+        titleInput.show();
+    });
 }
 
 async function insertDocumentIntoWorkspace(insertData: DocumentInsertData): Promise<void> {
@@ -127,17 +162,22 @@ async function insertDocumentIntoWorkspace(insertData: DocumentInsertData): Prom
         }
     }
 
-    // Create document content
-    const documentContent = createDocumentContent(insertData.title, insertData.url, processedContent);
+    // Write only the content to the file (no headers)
+    fs.writeFileSync(filePath, processedContent, 'utf8');
 
-    // Write file
-    fs.writeFileSync(filePath, documentContent, 'utf8');
+    // Insert link at cursor position
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+        const relativePath = path.relative(path.dirname(editor.document.uri.fsPath), filePath);
+        const linkText = `[${insertData.title}](${relativePath.replace(/\\/g, '/')})`;
+        
+        const position = editor.selection.active;
+        await editor.edit(editBuilder => {
+            editBuilder.insert(position, linkText);
+        });
+    }
 
-    // Open the created document
-    const document = await vscode.workspace.openTextDocument(filePath);
-    await vscode.window.showTextDocument(document);
-
-    vscode.window.showInformationMessage(`Document "${insertData.title}" created in docs folder`);
+    vscode.window.showInformationMessage(`Document "${insertData.title}" created and linked`);
 }
 
 function generateFilename(title: string): string {
@@ -147,22 +187,6 @@ function generateFilename(title: string): string {
         .replace(/\s+/g, '-') // Replace spaces with hyphens
         .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
         .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
-}
-
-function createDocumentContent(title: string, url: string, content: string): string {
-    const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    
-    let documentContent = `# ${title}\n\n`;
-    
-    if (url) {
-        documentContent += `**Source:** [${url}](${url})\n\n`;
-    }
-    
-    documentContent += `**Added:** ${timestamp}\n\n`;
-    documentContent += `---\n\n`;
-    documentContent += content;
-    
-    return documentContent;
 }
 
 async function runCliActionOnContent(content: string, actionName: string, workspaceFolder: string): Promise<string> {
