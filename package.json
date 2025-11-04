@@ -119,11 +119,14 @@
       {
         "command": "zma.inlineFold.toggleMarkdownUrls",
         "title": "ZMA: Toggle Inline URL Folding"
-      }
-      ,
+      },
       {
         "command": "zma.cleanSelectedText",
         "title": "ZMA: Clean Selected Text"
+      },
+      {
+        "command": "zma.insertDocument",
+        "title": "ZMA: Insert Document"
       }
     ],
     "menus": {
@@ -207,6 +210,11 @@
         "command": "zma.quickOpenLink",
         "key": "ctrl+k p",
         "mac": "cmd+k p"
+      },
+      {
+        "command": "zma.insertDocument",
+        "key": "ctrl+k i",
+        "mac": "cmd+k i"
       }
     ],
     "viewsContainers": {
