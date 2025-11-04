@@ -88,22 +88,25 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
     }
 
     private getUrlColor(url: string): string {
-     
-            const classification = this.urlClassifier.classify(url);
-            return AssetTypeColors[classification.assetType]
-       
+
+        const classification = this.urlClassifier.classify(url);
+
+        if (classification.assetType === AssetType.Unclassified) {
+            return colorForString(url);
+        }
+
+        return AssetTypeColors[classification.assetType]
+
     }
 
     private getLinkColor(rawLink: string): string {
         const urls = sharedIndex2().urlsForLinkRaw(rawLink);
         if (urls.length === 0) {
-            return AssetTypeColors[AssetType.Unclassified];
+            return colorForString(rawLink);
         }
 
         const url = urls[0];
-        const classification = this.urlClassifier.classify(url);
-        return AssetTypeColors[classification.assetType] 
-    
+        return this.getUrlColor(url);
     }
 
     private update() {
@@ -179,7 +182,7 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
             weak.push({ range: openBracketRange });
             weak.push({ range: closeBracketRange });
 
-     
+
             const color = this.getLinkColor(linkRaw);
             if (!coloredByHex.has(color)) {
                 coloredByHex.set(color, []);
@@ -196,7 +199,7 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
             const deco = this.getOrCreateColorDeco(hex);
             editor.setDecorations(deco, decorations);
         });
-        
+
         this.coloredDecos.forEach((deco, hex) => {
             if (!coloredByHex.has(hex)) {
                 editor.setDecorations(deco, []);
@@ -209,4 +212,26 @@ export function registerMarkdownInlineUrlFold(context: vscode.ExtensionContext) 
     const feature = new MarkdownInlineUrlFold(context);
     context.subscriptions.push(feature);
     return feature;
+}
+
+function colorForString(s: string): string {
+    const hexColors: string[] = [
+        "#f97316", "#ea580c", "#c2410c", // orange 500–700
+        "#f59e0b", "#d97706", "#b45309", // amber 500–700
+        "#eab308", "#ca8a04", "#a16207", // yellow 500–700
+    ];
+
+    const index = stringToIndex(s, hexColors.length);
+    return hexColors[index];
+
+}
+
+export function stringToIndex(s: string, n: number): number {
+    if (n <= 0) throw new Error("n must be > 0");
+    let h = 0;
+    for (let i = 0; i < s.length; i++) {
+        h = (h << 5) - h + s.charCodeAt(i);
+        h |= 0;
+    }
+    return (h >>> 0) % n;
 }
