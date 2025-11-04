@@ -155,7 +155,6 @@ export class Index2 {
     this._allActiveTasks = null;
     this._urlForLinkRaw = null;
   }
-
 }
 
 let globalIndex2: Index2 = new Index2();

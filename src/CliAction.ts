@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as cp from 'child_process';
+import { sharedIndex2 } from './Index2';
 
 interface CliAction {
     name: string;
@@ -22,14 +23,8 @@ export function activateCliActions(context: vscode.ExtensionContext) {
         const selection = editor.selection;
         const text = editor.document.getText(selection) || '';
 
-        const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-        if (!folder) {
-            vscode.window.showErrorMessage('No workspace folder found');
-            return;
-        }
 
-        const cliActionsPath = path.join(folder, "cli-actions");
-        const actions = loadActions(cliActionsPath);
+        const actions = loadCliActions();
 
         if (actions.length === 0) {
             vscode.window.showErrorMessage('No text actions found');
@@ -47,55 +42,24 @@ export function activateCliActions(context: vscode.ExtensionContext) {
 
         if (!selectedAction) return;
 
+        const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+        if (!folder) {
+            vscode.window.showErrorMessage('No workspace folder found');
+            return [];
+        }
+
         vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
             title: `Running ${selectedAction.label}...`,
             cancellable: false
         }, async () => {
             try {
-                const tempDir = path.join(folder, ".cli-action-temp");
-                if (!fs.existsSync(tempDir)) {
-                    fs.mkdirSync(tempDir, { recursive: true });
-                }
-
-                const inputFilePath = path.join(tempDir, `input.txt`);
-                fs.writeFileSync(inputFilePath, text, 'utf8');
-
-                if (selectedAction.action.preStep) {
-                    const preStepCommands = selectedAction.action.preStep.map(cmd =>
-                        cmd.replace(/\${text_file}/g, inputFilePath)
-                    );
-                    console.log(`Running pre-step commands: ${preStepCommands.join(' ')}`);
-                    await runCommand(preStepCommands.join(' '));
-                }
-
-                if (selectedAction.action.cleanHtml) {
-                    const fileContent = fs.readFileSync(inputFilePath, 'utf8');
-                    const processedText = cleanHtmlForMarkdown(fileContent);
-                    fs.writeFileSync(inputFilePath, processedText, 'utf8');
-                    // Write cleaned file for debugging
-                    fs.writeFileSync(inputFilePath + ".cleaned", processedText, 'utf8');
-                }
-
-                const processedArgs = selectedAction.action.args.map(arg =>
-                    arg.replace(/\${text_file}/g, inputFilePath)
-                );
-
-                console.log(`Running command: ${processedArgs.join(' ')}`);
-
-                const result = await runCommand(processedArgs.join(' '));
+                const result = await runCliAction(selectedAction.action, text);
 
                 editor.edit(editBuilder => {
                     editBuilder.replace(selection, result);
                 });
 
-                try {
-                    if (fs.existsSync(inputFilePath)) {
-                        fs.unlinkSync(inputFilePath);
-                    }
-                } catch (error) {
-                    console.error('Failed to delete temp file:', error);
-                }
 
             } catch (error: unknown) {
                 vscode.window.showErrorMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -106,18 +70,63 @@ export function activateCliActions(context: vscode.ExtensionContext) {
     context.subscriptions.push(disposable);
 }
 
+export async function runCliAction(cliAction: CliAction, text: string): Promise<string> {
+    const folder = sharedIndex2().workspaceFilePath;
+    const tempDir = path.join(folder, ".cli-action-temp");
+    if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const inputFilePath = path.join(tempDir, `input.txt`);
+    fs.writeFileSync(inputFilePath, text, 'utf8');
+
+    if (cliAction.preStep) {
+        const preStepCommands = cliAction.preStep.map(cmd =>
+            cmd.replace(/\${text_file}/g, inputFilePath)
+        );
+        console.log(`Running pre-step commands: ${preStepCommands.join(' ')}`);
+        await runCommand(preStepCommands.join(' '));
+    }
+
+    if (cliAction.cleanHtml) {
+        const fileContent = fs.readFileSync(inputFilePath, 'utf8');
+        const processedText = cleanHtmlForMarkdown(fileContent);
+        fs.writeFileSync(inputFilePath, processedText, 'utf8');
+        // Write cleaned file for debugging
+        fs.writeFileSync(inputFilePath + ".cleaned", processedText, 'utf8');
+    }
+
+    const processedArgs = cliAction.args.map(arg =>
+        arg.replace(/\${text_file}/g, inputFilePath)
+    );
+
+    console.log(`Running command: ${processedArgs.join(' ')}`);
+
+    const result = await runCommand(processedArgs.join(' '));
+
+    try {
+        if (fs.existsSync(inputFilePath)) {
+            fs.unlinkSync(inputFilePath);
+        }
+    } catch (error) {
+        console.error('Failed to delete temp file:', error);
+    }
+
+    return result;
+}
+
 
 function cleanHtmlForMarkdown(html: string): string {
     let cleaned = html.replace(/<script\b[^<]*(?:(?!<\/script>)[^<]*)*<\/script>/gi, '');
     cleaned = cleaned.replace(/<style\b[^<]*(?:(?!<\/style>)[^<]*)*<\/style>/gi, '');
-    
+
     cleaned = cleaned.replace(/<!--[\s\S]*?-->/g, '');
 
     cleaned = cleaned.replace(/<a\b([^>]*?)href="([^"]*)"([^>]*?)>/gi, '<a href="$2">');
-    
-    const allowedTags = ['a', 'strong', 'b', 'em', 'i', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 
-                        'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'p', 'br'];
-    
+
+    const allowedTags = ['a', 'strong', 'b', 'em', 'i', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'p', 'br'];
+
     allowedTags.forEach(tag => {
         if (tag !== 'a') {
             cleaned = cleaned.replace(new RegExp(`<${tag}\\b[^>]*>`, 'gi'), `<${tag}>`);
@@ -168,7 +177,13 @@ function cleanHtmlForMarkdown(html: string): string {
 }
 
 
-function loadActions(actionsPath: string): CliAction[] {
+export function loadCliActions(): CliAction[] {
+    const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    if (!folder) {
+        vscode.window.showErrorMessage('No workspace folder found');
+        return [];
+    }
+    const actionsPath = path.join(folder, "cli-actions");
     if (!fs.existsSync(actionsPath)) {
         fs.mkdirSync(actionsPath, { recursive: true });
         const exampleAction: CliAction = {

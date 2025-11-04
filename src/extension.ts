@@ -17,6 +17,7 @@ import { activateTasks } from './Tasks';
 import { processMdFile, reindex2, sharedIndex2 } from './Index2';
 import { activateCliActions } from './CliAction';
 import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
+import { activateInsertDocument } from './InsertDocument';
 
 export async function activate(context: vscode.ExtensionContext) {
   console.log('ZMA Extension: activate function called!');
@@ -34,6 +35,7 @@ export async function activate(context: vscode.ExtensionContext) {
   activateDocumentSymbolProvider(context);
   activateTodayIndicator();
   activateCliActions(context);
+  activateInsertDocument(context);
   registerMarkdownInlineUrlFold(context);
 
   context.subscriptions.push(vscode.commands.registerCommand('zma.introduction', () => ensurePagesFolderAndIntroduction(context)));
@@ -158,7 +160,7 @@ async function ensurePagesFolderAndIntroduction(context: vscode.ExtensionContext
       await vscode.workspace.fs.createDirectory(pagesFolderPath);
       const introductionContent = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(context.extensionUri, 'media', 'introduction.md'));
       await vscode.workspace.fs.writeFile(introductionFilePath, introductionContent);
-      vscode.window.showInformationMessage('Created \"pages\" folder and \"introduction.md\"');
+      vscode.window.showInformationMessage('Created "pages" folder and "introduction.md"');
       const document = await vscode.workspace.openTextDocument(introductionFilePath);
       await vscode.window.showTextDocument(document);
     } else {
