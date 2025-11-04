@@ -19,7 +19,14 @@ export function activateInsertDocument(context: vscode.ExtensionContext) {
             return;
         }
 
-        await insertDocumentIntoWorkspace(insertData);
+        // Show progress while creating document
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `Creating document "${insertData.title}"...`,
+            cancellable: false
+        }, async (progress, token) => {
+            await insertDocumentIntoWorkspace(insertData, progress);
+        });
     });
 
     context.subscriptions.push(disposable);
@@ -120,24 +127,40 @@ async function showDocumentInsertDialog(): Promise<DocumentInsertData | undefine
     });
 }
 
-async function insertDocumentIntoWorkspace(insertData: DocumentInsertData): Promise<void> {
+async function insertDocumentIntoWorkspace(
+    insertData: DocumentInsertData,
+    progress: vscode.Progress<{message?: string, increment?: number}>
+): Promise<void> {
+    progress.report({ increment: 10, message: 'Preparing document structure...' });
+    
     const link = Link.fromRawLink(cleanLinkTitle(insertData.title));
     const filePath = link.filePath();
 
+    progress.report({ increment: 20, message: 'Processing content...' });
+
     let processedContent = insertData.content;
     if (insertData.cliActionName) {
-
+        progress.report({ increment: 0, message: `Running CLI action: ${insertData.cliActionName}...` });
+        
         const cliAction = loadCliActions().find(action => action.name === insertData.cliActionName)!;
 
         try {
             processedContent = await runCliAction(cliAction, insertData.content);
+            progress.report({ increment: 40, message: 'CLI action completed successfully' });
         } catch (error) {
+            progress.report({ increment: 40, message: 'CLI action failed, using original content' });
             vscode.window.showWarningMessage(`CLI action failed: ${error instanceof Error ? error.message : String(error)}. Using original content.`);
         }
+    } else {
+        progress.report({ increment: 40, message: 'Content ready' });
     }
 
+    progress.report({ increment: 15, message: 'Writing file to disk...' });
+    
     fs.writeFileSync(filePath, processedContent, 'utf8');
 
+    progress.report({ increment: 10, message: 'Creating link...' });
+    
     const editor = vscode.window.activeTextEditor;
     if (editor) {
         
@@ -152,6 +175,11 @@ async function insertDocumentIntoWorkspace(insertData: DocumentInsertData): Prom
             editBuilder.insert(position, linkText);
         });
     }
+
+    progress.report({ increment: 5, message: 'Document created successfully!' });
+    
+    // Small delay to show completion message
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     vscode.window.showInformationMessage(`Document "${insertData.title}" created and linked`);
 }
