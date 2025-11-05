@@ -216,9 +216,9 @@ export function registerMarkdownInlineUrlFold(context: vscode.ExtensionContext) 
 
 function colorForString(s: string): string {
     const hexColors: string[] = [
-        "#f97316", "#ea580c", "#c2410c", // orange 500–700
-        "#f59e0b", "#d97706", "#b45309", // amber 500–700
-        "#eab308", "#ca8a04", "#a16207", // yellow 500–700
+        "#f97316", "#ea580c", // orange 500–600
+        "#f59e0b", "#d97706", // amber 500–600
+        "#eab308", "#ca8a04", // yellow 500–600
     ];
 
     const index = stringToIndex(s, hexColors.length);
