@@ -10,6 +10,7 @@ export class Link {
   public static fromRawLink(raw: string): Link {
     const l = new Link();
     l.raw = raw;
+
     return l;
   }
 
@@ -31,8 +32,15 @@ export class Link {
   }
 
   public isDate(): boolean {
-    const str = this.linkName();
+    const str = this.linkName().replaceAll("_", "-"); // Legacy support for underscores as date separators
     return /^\d{4}-\d{2}-\d{2}$/.test(str) && !isNaN(Date.parse(str));
+  }
+
+  public getDate(): Date | null {
+    if (this.isDate()) {
+      return new Date(this.linkName().replaceAll("_", "-")); // Legacy support for underscores as date separators
+    }
+    return null;
   }
 
   public fileExists(): boolean {
