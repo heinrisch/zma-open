@@ -1,38 +1,45 @@
 import * as vscode from 'vscode';
 
 /**
- * Configures the editor to prevent URLs from being wrapped when word wrap is enabled.
- * This is done by setting the editor's word break characters to exclude URL-related characters.
+ * VS Code's word wrap implementation breaks at certain characters including '/' and ':'
+ * which are common in URLs. This is hardcoded behavior that cannot be customized via
+ * the extension API.
+ * 
+ * This module provides:
+ * 1. A command to quickly toggle word wrap (in addition to Alt+Z)
+ * 2. Configuration to set markdown to use 'off' or 'bounded' word wrap by default
  */
 export function activateUrlWordWrap(context: vscode.ExtensionContext) {
-  // Apply URL-aware word wrap settings for markdown files
-  const applyUrlWordWrapSettings = () => {
-    const config = vscode.workspace.getConfiguration('editor', { languageId: 'markdown' });
-    
-    // Get current word wrap setting
-    const wordWrap = config.get<string>('wordWrap');
-    
-    // Only apply if word wrap is enabled
-    if (wordWrap && wordWrap !== 'off') {
-      // Configure word separators to exclude URL characters
-      // This prevents VS Code from breaking URLs at slashes, colons, etc.
-      config.update(
-        'wordSeparators',
-        '`~!@#$%^&*()-=+[{]}\\|;:\'",.<>?',
-        vscode.ConfigurationTarget.Global
-      );
+  // Register command to toggle word wrap
+  const toggleWordWrapCommand = vscode.commands.registerCommand(
+    'zma.toggleWordWrap',
+    () => {
+      const config = vscode.workspace.getConfiguration('editor');
+      const currentWrap = config.get<string>('wordWrap');
+      const newWrap = currentWrap === 'off' ? 'on' : 'off';
+      
+      config.update('wordWrap', newWrap, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage(`Word wrap: ${newWrap}`);
     }
-  };
-
-  // Apply settings on activation
-  applyUrlWordWrapSettings();
-
-  // Re-apply when configuration changes
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('editor.wordWrap')) {
-        applyUrlWordWrapSettings();
-      }
-    })
   );
+
+  context.subscriptions.push(toggleWordWrapCommand);
+
+  // Configure default settings for markdown to minimize URL issues
+  configureMarkdownDefaults();
+}
+
+function configureMarkdownDefaults() {
+  const config = vscode.workspace.getConfiguration();
+  const markdownConfig = config.get('[markdown]') as any;
+  
+  // Only set if user hasn't configured it
+  if (!markdownConfig || !markdownConfig['editor.wordWrap']) {
+    // Disable word wrap for markdown by default to prevent URL breaking
+    config.update(
+      '[markdown]',
+      { 'editor.wordWrap': 'off' },
+      vscode.ConfigurationTarget.Global
+    );
+  }
 }
