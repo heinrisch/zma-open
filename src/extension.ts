@@ -18,6 +18,7 @@ import { processMdFile, reindex2, sharedIndex2 } from './Index2';
 import { activateCliActions } from './CliAction';
 import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
 import { activateInsertDocument } from './InsertDocument';
+import { activateUrlWordWrap } from './UrlWordWrap';
 
 export async function activate(context: vscode.ExtensionContext) {
   console.log('ZMA Extension: activate function called!');
@@ -37,6 +38,7 @@ export async function activate(context: vscode.ExtensionContext) {
   activateCliActions(context);
   activateInsertDocument(context);
   registerMarkdownInlineUrlFold(context);
+  activateUrlWordWrap(context);
 
   context.subscriptions.push(vscode.commands.registerCommand('zma.introduction', () => ensurePagesFolderAndIntroduction(context)));
 
