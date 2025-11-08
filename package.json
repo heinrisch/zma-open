@@ -3,7 +3,7 @@
   "publisher": "heinrisch",
   "displayName": "zma",
   "description": "Next level notes",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "engines": {
     "vscode": "^1.105.0"
   },
@@ -127,6 +127,14 @@
       {
         "command": "zma.insertDocument",
         "title": "ZMA: Insert Document"
+      },
+      {
+        "command": "zma.addTagsToCurrentLink",
+        "title": "ZMA: Add Tags to Current Link"
+      },
+      {
+        "command": "zma.showLinksWithTag",
+        "title": "ZMA: Show Links with Tag"
       }
     ],
     "menus": {
@@ -215,6 +223,11 @@
         "command": "zma.insertDocument",
         "key": "ctrl+k i",
         "mac": "cmd+k i"
+      },
+      {
+        "command": "zma.addTagsToCurrentLink",
+        "key": "ctrl+k t",
+        "mac": "cmd+k t"
       }
     ],
     "viewsContainers": {
