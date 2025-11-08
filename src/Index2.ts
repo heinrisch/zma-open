@@ -344,7 +344,6 @@ export async function processMdFile(fileContent: string, filePath: string): Prom
     zmaFile.linkLocations.push(ll);
   });
 
-  // Parse tags:: header
   const tagMatches = regexMatches(RegexPatterns.RE_TAGS(), fileContent);
   if (tagMatches.length > 0) {
     const tagsString = tagMatches[0].groups[0];
@@ -357,7 +356,6 @@ export async function processMdFile(fileContent: string, filePath: string): Prom
 }
 
 async function addLinkAliasAndTagHeaders(index: Index2) {
-  // Handle link:: headers for files with URLs
   index.linkLocations().filter(ll => ll.type === LinkType.HREF && ll.url).filter(ll => ll.link.fileExists()).forEach(async ll => {
     const link = ll.link;
     const url = ll.url;
@@ -374,55 +372,35 @@ async function addLinkAliasAndTagHeaders(index: Index2) {
       await vscode.workspace.fs.writeFile(uri, Buffer.from(contentString));
     }
   });
-
-  // Migrate tags from tags.txt to file headers when files are created
-  const linksWithFileTags: Set<string> = new Set();
   
   for (const file of index.allFiles()) {
     const linkName = file.link.linkName();
     const tagsInFile = file.tags;
     
-    // Check if there are tags in tags.txt for this link
     const tagsFromIndex = getTagsForLink(linkName);
     
     if (tagsFromIndex.length > 0) {
-      // File exists and has tags in tags.txt - migrate them to file
       const uri = vscode.Uri.file(file.link.filePath());
       const content = await vscode.workspace.fs.readFile(uri);
       let contentString = content.toString();
       
-      // Merge tags from file and tags.txt
       const allTags = Array.from(new Set([...tagsInFile, ...tagsFromIndex]));
       
       const tagsHeader = `tags:: ${allTags.join(', ')}`;
       
-      // Check if tags:: header already exists
       const existingTagsMatch = contentString.match(RegexPatterns.RE_TAGS());
       
       if (existingTagsMatch) {
-        // Replace existing tags:: header
         contentString = contentString.replace(RegexPatterns.RE_TAGS(), tagsHeader);
       } else {
-        // Add tags:: header at the beginning
         contentString = tagsHeader + '\n' + contentString;
       }
       
       await vscode.workspace.fs.writeFile(uri, Buffer.from(contentString));
       
-      // Remove from tags.txt since it's now in the file
-      removeTagsForLink(linkName, false);
-      linksWithFileTags.add(linkName);
-    } else if (tagsInFile.length > 0) {
-      // File has tags in tags:: header - track it
-      linksWithFileTags.add(linkName);
+      removeTagsForLink(linkName, true);
     }
   }
-  
-  // Clean up any links in tags.txt that now have files
-  const allTaggedLinks = Array.from(linksWithFileTags);
-  allTaggedLinks.forEach(linkName => {
-    removeTagsForLink(linkName, false);
-  });
 }
 
 export function regexMatches(regex: RegExp, fileContent: string): Array<{
