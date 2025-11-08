@@ -5,7 +5,9 @@ import { formatAllFiles } from './MarkdownFormatter';
 import { createFileIfNotExists, quickOpenLink } from './QuickOpenLink';
 import { quickOpenHref } from './QuickOpenHref';
 import { remakeLastEditIndex } from './LastEditHandler';
-import { reindex2 } from './Index2';
+import { reindex2, sharedIndex2 } from './Index2';
+import { getTagsForLink, setTagsForLink, removeTagsForLink, getAllTags } from './TagHandler';
+import { RegexPatterns } from './RegexPatterns';
 
 export const activateCommands = (context: vscode.ExtensionContext, resetProviders: () => void) => {
   context.subscriptions.push(
@@ -161,6 +163,102 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
       });
     })
   );
+
+  // Tag management commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand('zma.addTagsToCurrentLink', async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        void vscode.window.showInformationMessage('No active editor');
+        return;
+      }
+
+      const document = editor.document;
+      const filePath = document.fileName;
+      const link = Link.fromFilePath(filePath);
+      const linkName = link.linkName();
+
+      // Get existing tags
+      const existingTags = getTagsForCurrentLink(document);
+
+      // Ask user for tags
+      const tagsInput = await vscode.window.showInputBox({
+        prompt: 'Enter tags (comma-separated)',
+        value: existingTags.join(', '),
+        placeHolder: 'tag1, tag2, tag3'
+      });
+
+      if (tagsInput === undefined) {
+        return; // User cancelled
+      }
+
+      const newTags = tagsInput.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
+      // Update tags in the file
+      await updateTagsInFile(document, newTags);
+
+      // If link doesn't have a file, store in tags.txt
+      if (!link.fileExists()) {
+        setTagsForLink(linkName, newTags);
+      }
+
+      void vscode.window.showInformationMessage(`Tags updated for ${linkName}`);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('zma.showLinksWithTag', async () => {
+      const allTags = Array.from(getAllTags()).sort();
+
+      if (allTags.length === 0) {
+        void vscode.window.showInformationMessage('No tags found');
+        return;
+      }
+
+      const selectedTag = await vscode.window.showQuickPick(allTags, {
+        placeHolder: 'Select a tag to view links'
+      });
+
+      if (!selectedTag) {
+        return;
+      }
+
+      // Find all links with this tag (from both files and tags.txt)
+      const linksWithTag: string[] = [];
+
+      // Check files
+      sharedIndex2().allFiles().forEach(file => {
+        if (file.tags.includes(selectedTag)) {
+          linksWithTag.push(file.link.linkName());
+        }
+      });
+
+      // Check tags.txt
+      const linksFromIndex = getLinksWithTag(selectedTag);
+      linksFromIndex.forEach(linkName => {
+        if (!linksWithTag.includes(linkName)) {
+          linksWithTag.push(linkName);
+        }
+      });
+
+      if (linksWithTag.length === 0) {
+        void vscode.window.showInformationMessage(`No links found with tag: ${selectedTag}`);
+        return;
+      }
+
+      const selectedLink = await vscode.window.showQuickPick(linksWithTag, {
+        placeHolder: `Links with tag: ${selectedTag}`
+      });
+
+      if (selectedLink) {
+        const link = Link.fromRawLink(selectedLink);
+        await createFileIfNotExists(vscode.Uri.file(link.filePath()));
+        await vscode.workspace.openTextDocument(link.filePath()).then(async (document) => {
+          await vscode.window.showTextDocument(document);
+        });
+      }
+    })
+  );
 };
 
 export function cleanLinkTitle(input: string): string {
@@ -198,4 +296,61 @@ export function cleanLinkTitle(input: string): string {
   s = s.replace(/\s*-\s*/g, ' - ');
 
   return s;
+}
+
+function getTagsForCurrentLink(document: vscode.TextDocument): string[] {
+  const content = document.getText();
+  const tagMatches = content.match(RegexPatterns.RE_TAGS());
+
+  if (tagMatches && tagMatches.length > 0) {
+    const tagsString = tagMatches[0].replace(/^tags::\s*/, '');
+    return tagsString.split(',').map(t => t.trim()).filter(t => t.length > 0);
+  }
+
+  return [];
+}
+
+async function updateTagsInFile(document: vscode.TextDocument, tags: string[]): Promise<void> {
+  const edit = new vscode.WorkspaceEdit();
+  const content = document.getText();
+
+  const tagsHeader = `tags:: ${tags.join(', ')}`;
+
+  // Check if tags:: header already exists
+  const existingTagsMatch = content.match(RegexPatterns.RE_TAGS());
+
+  if (existingTagsMatch) {
+    // Find the line with tags::
+    const lines = content.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].match(RegexPatterns.RE_TAGS())) {
+        const range = new vscode.Range(
+          new vscode.Position(i, 0),
+          new vscode.Position(i, lines[i].length)
+        );
+        edit.replace(document.uri, range, tagsHeader);
+        break;
+      }
+    }
+  } else {
+    // Add tags:: header at the beginning
+    const position = new vscode.Position(0, 0);
+    edit.insert(document.uri, position, tagsHeader + '\n');
+  }
+
+  await vscode.workspace.applyEdit(edit);
+  await document.save();
+}
+
+function getLinksWithTag(tag: string): string[] {
+  const links: string[] = [];
+
+  // Check files
+  sharedIndex2().allFiles().forEach(file => {
+    if (file.tags.includes(tag)) {
+      links.push(file.link.linkName());
+    }
+  });
+
+  return links;
 }
