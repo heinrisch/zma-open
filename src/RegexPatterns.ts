@@ -8,4 +8,5 @@ export class RegexPatterns {
   static RE_TASK_STATUS = () => RegExp(/\s*- (TODO|DOING|DONE).+/gm);
   static RE_TASK_GROUP = () => RegExp(/- ((?:TODO|DOING|DONE)\/(\w+).+)/gm);
   static RE_ALIAS = () => RegExp(/\[\[([^\]]+)\]\]\s*=\s*\[\[([^\]]+)\]\]/g);
+  static RE_TAGS = () => RegExp(/^tags::\s*(.+)$/gm);
 }

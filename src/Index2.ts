@@ -8,6 +8,7 @@ import { Stopwatch } from './Stopwatch';
 import { findAndCreateTasks, Task, TaskState } from './Tasks';
 import { escapeRegExp } from './Util';
 import { readLastEditIndexFromFile } from './LastEditHandler';
+import { readTagIndexFromFile, getTagsForLink, setTagsForLink, removeTagsForLink } from './TagHandler';
 
 class ZmaFile {
   constructor(
@@ -16,6 +17,7 @@ class ZmaFile {
     public linkLocations: LinkLocation[] = [],
     public aliases: [string, string][] = [],
     public tasks: Task[] = [],
+    public tags: string[] = [],
     public embeddings: Map<LinkLocation, number[]> = new Map()
   ) {
   }
@@ -215,6 +217,9 @@ export async function reindex2() {
   readLastEditIndexFromFile();
   stopwatch.lap('Reindexed lastEdit');
 
+  readTagIndexFromFile();
+  stopwatch.lap('Reindexed tags');
+
   void vscode.commands.executeCommand('zma.refreshexplorers');
 
   index.isCompleted = true;
@@ -238,9 +243,9 @@ export async function reindex2() {
 
   stopwatch.lap('Added backlinks for unlinked links');
 
-  addLinkAndAliasHeaders(index);
+  await addLinkAliasAndTagHeaders(index);
 
-  stopwatch.lap('link:: headers');
+  stopwatch.lap('link:: and tags:: headers');
 
   const memoryUsage = process.memoryUsage();
   const heapUsage = (memoryUsage.heapUsed / 1024 / 1024).toFixed(2);
@@ -339,12 +344,18 @@ export async function processMdFile(fileContent: string, filePath: string): Prom
     zmaFile.linkLocations.push(ll);
   });
 
+  const tagMatches = regexMatches(RegexPatterns.RE_TAGS(), fileContent);
+  if (tagMatches.length > 0) {
+    const tagsString = tagMatches[0].groups[0];
+    zmaFile.tags = tagsString.split(',').map(t => t.trim()).filter(t => t.length > 0);
+  }
+
   zmaFile.tasks = findAndCreateTasks(link, fileContent);
 
   return zmaFile;
 }
 
-function addLinkAndAliasHeaders(index: Index2) {
+async function addLinkAliasAndTagHeaders(index: Index2) {
   index.linkLocations().filter(ll => ll.type === LinkType.HREF && ll.url).filter(ll => ll.link.fileExists()).forEach(async ll => {
     const link = ll.link;
     const url = ll.url;
@@ -361,6 +372,35 @@ function addLinkAndAliasHeaders(index: Index2) {
       await vscode.workspace.fs.writeFile(uri, Buffer.from(contentString));
     }
   });
+  
+  for (const file of index.allFiles()) {
+    const linkName = file.link.linkName();
+    const tagsInFile = file.tags;
+    
+    const tagsFromIndex = getTagsForLink(linkName);
+    
+    if (tagsFromIndex.length > 0) {
+      const uri = vscode.Uri.file(file.link.filePath());
+      const content = await vscode.workspace.fs.readFile(uri);
+      let contentString = content.toString();
+      
+      const allTags = Array.from(new Set([...tagsInFile, ...tagsFromIndex]));
+      
+      const tagsHeader = `tags:: ${allTags.join(', ')}`;
+      
+      const existingTagsMatch = contentString.match(RegexPatterns.RE_TAGS());
+      
+      if (existingTagsMatch) {
+        contentString = contentString.replace(RegexPatterns.RE_TAGS(), tagsHeader);
+      } else {
+        contentString = tagsHeader + '\n' + contentString;
+      }
+      
+      await vscode.workspace.fs.writeFile(uri, Buffer.from(contentString));
+      
+      removeTagsForLink(linkName, true);
+    }
+  }
 }
 
 export function regexMatches(regex: RegExp, fileContent: string): Array<{
