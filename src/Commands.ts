@@ -178,10 +178,8 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
       const link = Link.fromFilePath(filePath);
       const linkName = link.linkName();
 
-      // Get existing tags
       const existingTags = getTagsForCurrentLink(document);
 
-      // Ask user for tags
       const tagsInput = await vscode.window.showInputBox({
         prompt: 'Enter tags (comma-separated)',
         value: existingTags.join(', '),
@@ -194,10 +192,8 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
 
       const newTags = tagsInput.split(',').map(t => t.trim()).filter(t => t.length > 0);
 
-      // Update tags in the file
       await updateTagsInFile(document, newTags);
 
-      // If link doesn't have a file, store in tags.txt
       if (!link.fileExists()) {
         setTagsForLink(linkName, newTags);
       }
@@ -206,59 +202,6 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
     })
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand('zma.showLinksWithTag', async () => {
-      const allTags = Array.from(getAllTags()).sort();
-
-      if (allTags.length === 0) {
-        void vscode.window.showInformationMessage('No tags found');
-        return;
-      }
-
-      const selectedTag = await vscode.window.showQuickPick(allTags, {
-        placeHolder: 'Select a tag to view links'
-      });
-
-      if (!selectedTag) {
-        return;
-      }
-
-      // Find all links with this tag (from both files and tags.txt)
-      const linksWithTag: string[] = [];
-
-      // Check files
-      sharedIndex2().allFiles().forEach(file => {
-        if (file.tags.includes(selectedTag)) {
-          linksWithTag.push(file.link.linkName());
-        }
-      });
-
-      // Check tags.txt
-      const linksFromIndex = getLinksWithTag(selectedTag);
-      linksFromIndex.forEach(linkName => {
-        if (!linksWithTag.includes(linkName)) {
-          linksWithTag.push(linkName);
-        }
-      });
-
-      if (linksWithTag.length === 0) {
-        void vscode.window.showInformationMessage(`No links found with tag: ${selectedTag}`);
-        return;
-      }
-
-      const selectedLink = await vscode.window.showQuickPick(linksWithTag, {
-        placeHolder: `Links with tag: ${selectedTag}`
-      });
-
-      if (selectedLink) {
-        const link = Link.fromRawLink(selectedLink);
-        await createFileIfNotExists(vscode.Uri.file(link.filePath()));
-        await vscode.workspace.openTextDocument(link.filePath()).then(async (document) => {
-          await vscode.window.showTextDocument(document);
-        });
-      }
-    })
-  );
 };
 
 export function cleanLinkTitle(input: string): string {

@@ -131,10 +131,6 @@
       {
         "command": "zma.addTagsToCurrentLink",
         "title": "ZMA: Add Tags to Current Link"
-      },
-      {
-        "command": "zma.showLinksWithTag",
-        "title": "ZMA: Show Links with Tag"
       }
     ],
     "menus": {
