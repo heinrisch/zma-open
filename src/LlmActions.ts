@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { LlmClient, LlmMessage, LlmClientConfig } from './LlmClient';
+import { cleanHtmlForMarkdown } from './CliAction';
 
 export interface LlmAction {
     name: string;
@@ -10,6 +11,7 @@ export interface LlmAction {
     userPromptTemplate?: string;
     temperature?: number;
     maxTokens?: number;
+    cleanHtml?: boolean;
 }
 
 export function activateLlmActions(context: vscode.ExtensionContext) {
@@ -76,6 +78,12 @@ export async function runLlmAction(
     action: LlmAction,
     text: string
 ): Promise<string> {
+    // Pre-process text with cleanHtml if enabled
+    let processedText = text;
+    if (action.cleanHtml) {
+        processedText = cleanHtmlForMarkdown(text);
+    }
+
     const clientConfig: LlmClientConfig = {
         ...config,
         temperature: action.temperature ?? config.temperature,
@@ -92,8 +100,8 @@ export async function runLlmAction(
         {
             role: 'user',
             content: action.userPromptTemplate 
-                ? action.userPromptTemplate.replace('${text}', text)
-                : text
+                ? action.userPromptTemplate.replace('${text}', processedText)
+                : processedText
         }
     ];
 
@@ -175,6 +183,14 @@ export function loadLlmActions(): LlmAction[] {
             temperature: 0.1
         };
         
+        const summarizeCleanedHtmlAction: LlmAction = {
+            name: 'Summarize Cleaned HTML',
+            description: 'Clean HTML then summarize with LLM',
+            systemPrompt: 'You are a helpful assistant that summarizes text concisely.',
+            userPromptTemplate: 'Summarize the following content:\n\n${text}',
+            cleanHtml: true
+        };
+        
         fs.writeFileSync(
             path.join(actionsPath, 'summarize.json'),
             JSON.stringify(summarizeAction, null, 2)
@@ -190,6 +206,10 @@ export function loadLlmActions(): LlmAction[] {
         fs.writeFileSync(
             path.join(actionsPath, 'clean-html.json'),
             JSON.stringify(cleanHtmlAction, null, 2)
+        );
+        fs.writeFileSync(
+            path.join(actionsPath, 'summarize-cleaned-html.json'),
+            JSON.stringify(summarizeCleanedHtmlAction, null, 2)
         );
     }
 
