@@ -32,32 +32,32 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
   const startTime = Date.now();
 
   const completionItems = sharedIndex2().autoCompleteItems()
-  .filter((a: AutocompleteItem): boolean => suggestHeader || a.type !== AutocompleteType.HEADER)
-  .map((a): [AutocompleteItem, number] => [a, ScoringUtils.scoreAutocomplete(text, a.text)])
-  .sort(([, a], [, b]) => b - a)
-  .slice(0, 50)
-  .map(([a, score], index): CompletionItem => {
-    const insert = shouldHaveBrackets
-      ? `${AcData[a.type].prefix}${a.completion}${AcData[a.type].suffix}`
-      : a.completion;
-    return {
+    .filter((a: AutocompleteItem): boolean => suggestHeader || a.type !== AutocompleteType.HEADER)
+    .map((a): [AutocompleteItem, number] => [a, ScoringUtils.scoreAutocomplete(text, a.text)])
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 50)
+    .map(([a, score], index): CompletionItem => {
+      const insert = shouldHaveBrackets
+        ? `${AcData[a.type].prefix}${a.completion}${AcData[a.type].suffix}`
+        : a.completion;
+      return {
         label: a.text + ` (${score.toFixed(2)})`,
         insertText: insert,
-        filterText: toAutocompleteString(a.text),
+        filterText: text, // Was toAutocompleteString(a.text). Trying to override vscode's own filtering
         kind: AcData[a.type].type,
         sortText: String(index + 1).padStart(2, '0'),
       };
-  });
+    });
 
   const endTime = Date.now();
   const executionTime = endTime - startTime;
   console.log(`Autocomplete constructed in ${executionTime}ms`);
 
-  return completionItems; 
+  return completionItems;
 };
 
 export class AutocompleteItem {
-  constructor(public text: string, public type: AutocompleteType, public completion: string = text) {}
+  constructor(public text: string, public type: AutocompleteType, public completion: string = text) { }
 
   getKey(): string {
     return `${this.text}||${this.completion}`;
