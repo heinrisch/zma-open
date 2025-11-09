@@ -12,6 +12,7 @@ export interface LlmAction {
     temperature?: number;
     maxTokens?: number;
     cleanHtml?: boolean;
+    model?: string;
 }
 
 export function activateLlmActions(context: vscode.ExtensionContext) {
@@ -55,7 +56,6 @@ export function activateLlmActions(context: vscode.ExtensionContext) {
         }, async () => {
             try {
                 const result = await runLlmAction(config, selectedAction.action, text);
-                
                 editor.edit(editBuilder => {
                     editBuilder.replace(selection, result);
                 });
@@ -64,7 +64,6 @@ export function activateLlmActions(context: vscode.ExtensionContext) {
             }
         });
     });
-
     context.subscriptions.push(disposable);
 }
 
@@ -73,20 +72,17 @@ export async function runLlmAction(
     action: LlmAction,
     text: string
 ): Promise<string> {
-
     let processedText = text;
     if (action.cleanHtml) {
         processedText = cleanHtmlForMarkdown(text);
     }
-
     const clientConfig: LlmClientConfig = {
         ...config,
+        model: action.model ?? config.model,
         temperature: action.temperature ?? config.temperature,
         maxTokens: action.maxTokens ?? config.maxTokens
     };
-    
     const client = new LlmClient(clientConfig);
-
     const messages: LlmMessage[] = [
         {
             role: 'system',
@@ -99,7 +95,6 @@ export async function runLlmAction(
                 : processedText
         }
     ];
-
     return await client.complete(messages);
 }
 
@@ -108,25 +103,20 @@ export function loadLlmConfig(): LlmClientConfig | null {
     if (!folder) {
         return null;
     }
-
     const configPath = path.join(folder, 'llm-config.json');
     if (!fs.existsSync(configPath)) {
-        // Create example config
         const exampleConfig: LlmClientConfig = {
             baseUrl: 'http://localhost:11434',
             model: 'llama3.2',
             temperature: 0.7,
             maxTokens: 2000
         };
-        
         fs.writeFileSync(
             configPath,
             JSON.stringify(exampleConfig, null, 2) + '\n'
         );
-        
         return null;
     }
-
     try {
         const configData = fs.readFileSync(configPath, 'utf8');
         return JSON.parse(configData) as LlmClientConfig;
@@ -141,25 +131,21 @@ export function loadLlmActions(): LlmAction[] {
     if (!folder) {
         return [];
     }
-
     const actionsPath = path.join(folder, 'llm-actions');
     if (!fs.existsSync(actionsPath)) {
         fs.mkdirSync(actionsPath, { recursive: true });
-        
         const summarizeAction: LlmAction = {
             name: 'Summarize',
             description: 'Summarize the selected text',
             systemPrompt: 'You are a helpful assistant that summarizes text concisely.',
             userPromptTemplate: 'Please summarize the following text:\n\n${text}'
         };
-        
         const improveAction: LlmAction = {
             name: 'Improve Writing',
             description: 'Improve grammar and clarity',
             systemPrompt: 'You are an expert editor. Improve the grammar, clarity, and style of the text while preserving its meaning.',
             userPromptTemplate: '${text}'
         };
-        
         const expandAction: LlmAction = {
             name: 'Expand Notes',
             description: 'Expand brief notes into detailed explanations',
@@ -167,7 +153,6 @@ export function loadLlmActions(): LlmAction[] {
             userPromptTemplate: 'Expand these notes into a more detailed explanation:\n\n${text}',
             temperature: 0.7
         };
-        
         const summarizeCleanedHtmlAction: LlmAction = {
             name: 'Summarize Cleaned HTML',
             description: 'Clean HTML then summarize with LLM',
@@ -175,7 +160,13 @@ export function loadLlmActions(): LlmAction[] {
             userPromptTemplate: 'Summarize the following content:\n\n${text}',
             cleanHtml: true
         };
-        
+        const openaiAction: LlmAction = {
+            name: 'Summarize with OpenAI',
+            description: 'Summarize using the OpenAI gpt-4 model',
+            systemPrompt: 'You are a helpful assistant that summarizes text concisely.',
+            userPromptTemplate: 'Please summarize the following text:\n\n${text}',
+            model: 'gpt-4'
+        };
         fs.writeFileSync(
             path.join(actionsPath, 'summarize.json'),
             JSON.stringify(summarizeAction, null, 2)
@@ -192,11 +183,13 @@ export function loadLlmActions(): LlmAction[] {
             path.join(actionsPath, 'summarize-cleaned-html.json'),
             JSON.stringify(summarizeCleanedHtmlAction, null, 2)
         );
+        fs.writeFileSync(
+            path.join(actionsPath, 'summarize-openai.json'),
+            JSON.stringify(openaiAction, null, 2)
+        );
     }
-
     const actions: LlmAction[] = [];
     const files = fs.readdirSync(actionsPath);
-
     for (const file of files) {
         if (path.extname(file) === '.json') {
             try {
@@ -207,6 +200,5 @@ export function loadLlmActions(): LlmAction[] {
             }
         }
     }
-
     return actions;
 }
