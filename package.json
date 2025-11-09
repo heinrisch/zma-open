@@ -113,6 +113,10 @@
         "title": "ZMA: Run Cli Action"
       },
       {
+        "command": "zma.runLlmAction",
+        "title": "ZMA: Run LLM Action"
+      },
+      {
         "command": "zma.introduction",
         "title": "ZMA: Introduction"
       },

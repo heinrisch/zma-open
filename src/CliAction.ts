@@ -116,7 +116,7 @@ export async function runCliAction(cliAction: CliAction, text: string): Promise<
 }
 
 
-function cleanHtmlForMarkdown(html: string): string {
+export function cleanHtmlForMarkdown(html: string): string {
     let cleaned = html.replace(/<script\b[^<]*(?:(?!<\/script>)[^<]*)*<\/script>/gi, '');
     cleaned = cleaned.replace(/<style\b[^<]*(?:(?!<\/style>)[^<]*)*<\/style>/gi, '');
 

@@ -16,6 +16,7 @@ import { activateTodayIndicator } from './TodayIndicator';
 import { activateTasks } from './Tasks';
 import { processMdFile, reindex2, sharedIndex2 } from './Index2';
 import { activateCliActions } from './CliAction';
+import { activateLlmActions } from './LlmActions';
 import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
 import { activateInsertDocument } from './InsertDocument';
 
@@ -35,6 +36,7 @@ export async function activate(context: vscode.ExtensionContext) {
   activateDocumentSymbolProvider(context);
   activateTodayIndicator();
   activateCliActions(context);
+  activateLlmActions(context);
   activateInsertDocument(context);
   registerMarkdownInlineUrlFold(context);
 
