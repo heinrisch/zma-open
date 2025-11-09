@@ -67,6 +67,17 @@ Actions are stored in the `llm-actions/` folder in your workspace. Each action i
 }
 ```
 
+**Example: `llm-actions/clean-html.json`**
+```json
+{
+  "name": "Clean HTML",
+  "description": "Remove HTML tags and formatting for markdown",
+  "systemPrompt": "You are a text processing assistant. Your task is to clean HTML content by removing scripts, styles, comments, unnecessary attributes, and non-essential tags while preserving links, basic formatting (bold, italic, headings), lists, and text structure. Return only the cleaned text without any additional commentary.",
+  "userPromptTemplate": "Clean this HTML content for markdown use, keeping only essential formatting (links, bold, italic, headings, lists) and removing everything else:\n\n${text}",
+  "temperature": 0.1
+}
+```
+
 **Action Properties:**
 - `name`: Display name in the quick pick menu
 - `description`: Description shown in the quick pick menu
