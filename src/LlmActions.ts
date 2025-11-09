@@ -167,6 +167,14 @@ export function loadLlmActions(): LlmAction[] {
             temperature: 0.7
         };
         
+        const cleanHtmlAction: LlmAction = {
+            name: 'Clean HTML',
+            description: 'Remove HTML tags and formatting for markdown',
+            systemPrompt: 'You are a text processing assistant. Your task is to clean HTML content by removing scripts, styles, comments, unnecessary attributes, and non-essential tags while preserving links, basic formatting (bold, italic, headings), lists, and text structure. Return only the cleaned text without any additional commentary.',
+            userPromptTemplate: 'Clean this HTML content for markdown use, keeping only essential formatting (links, bold, italic, headings, lists) and removing everything else:\n\n${text}',
+            temperature: 0.1
+        };
+        
         fs.writeFileSync(
             path.join(actionsPath, 'summarize.json'),
             JSON.stringify(summarizeAction, null, 2)
@@ -178,6 +186,10 @@ export function loadLlmActions(): LlmAction[] {
         fs.writeFileSync(
             path.join(actionsPath, 'expand-notes.json'),
             JSON.stringify(expandAction, null, 2)
+        );
+        fs.writeFileSync(
+            path.join(actionsPath, 'clean-html.json'),
+            JSON.stringify(cleanHtmlAction, null, 2)
         );
     }
 
