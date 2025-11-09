@@ -1,7 +1,0 @@
-{
-  "name": "Explain Code",
-  "description": "Explain what the code does",
-  "systemPrompt": "You are a programming expert. Explain code clearly and concisely.",
-  "userPromptTemplate": "Explain what this code does:\n\n${text}",
-  "temperature": 0.3
-}
