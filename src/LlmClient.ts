@@ -39,10 +39,6 @@ export interface LlmClientConfig {
     maxTokens?: number;
 }
 
-/**
- * LLM Client for OpenAI-compatible APIs
- * Uses only Node.js built-in modules (https, http) - no external dependencies
- */
 export class LlmClient {
     private config: LlmClientConfig;
 
@@ -50,9 +46,6 @@ export class LlmClient {
         this.config = config;
     }
 
-    /**
-     * Send a completion request to the LLM API
-     */
     async complete(messages: LlmMessage[]): Promise<string> {
         const request: LlmCompletionRequest = {
             model: this.config.model,
@@ -71,9 +64,6 @@ export class LlmClient {
         return response.choices[0].message.content;
     }
 
-    /**
-     * Make an HTTP request to the LLM API
-     */
     private async makeRequest(
         endpoint: string,
         body: LlmCompletionRequest
@@ -127,7 +117,7 @@ export class LlmClient {
                 reject(new Error('Request timed out'));
             });
 
-            req.setTimeout(60000); // 60 second timeout
+            req.setTimeout(120 * 1000); // 60 second timeout
             req.write(postData);
             req.end();
         });

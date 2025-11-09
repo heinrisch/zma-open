@@ -76,7 +76,6 @@ export async function runLlmAction(
     action: LlmAction,
     text: string
 ): Promise<string> {
-    // Create client with action-specific overrides
     const clientConfig: LlmClientConfig = {
         ...config,
         temperature: action.temperature ?? config.temperature,
@@ -85,7 +84,6 @@ export async function runLlmAction(
     
     const client = new LlmClient(clientConfig);
 
-    // Build messages
     const messages: LlmMessage[] = [
         {
             role: 'system',
