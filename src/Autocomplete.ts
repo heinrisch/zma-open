@@ -34,6 +34,7 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
   const completionItems = sharedIndex2().autoCompleteItems()
     .filter((a: AutocompleteItem): boolean => suggestHeader || a.type !== AutocompleteType.HEADER)
     .map((a): [AutocompleteItem, number] => [a, ScoringUtils.scoreAutocomplete(text, a.text)])
+    .filter(([, score]) => score >= ScoringUtils.minScore)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 50)
     .map(([a, score], index): CompletionItem => {

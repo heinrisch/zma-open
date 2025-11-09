@@ -112,7 +112,7 @@ export class ScoringUtils {
 
   static scoreAutocomplete = (search: string, match: string): number => {
     const s = ScoringUtils.matchScore(search, match);
-    if (s === 0) {
+    if (s < this.minScore) {
       return 0;
     }
     const ed = getLastEditedIndexed(match);
