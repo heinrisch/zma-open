@@ -159,12 +159,12 @@ export function loadLlmActions(): LlmAction[] {
             userPromptTemplate: '${text}'
         };
         
-        const explainAction: LlmAction = {
-            name: 'Explain Code',
-            description: 'Explain what the code does',
-            systemPrompt: 'You are a programming expert. Explain code clearly and concisely.',
-            userPromptTemplate: 'Explain what this code does:\n\n${text}',
-            temperature: 0.3
+        const expandAction: LlmAction = {
+            name: 'Expand Notes',
+            description: 'Expand brief notes into detailed explanations',
+            systemPrompt: 'You are a helpful assistant that expands brief notes into clear, detailed explanations while maintaining the original meaning.',
+            userPromptTemplate: 'Expand these notes into a more detailed explanation:\n\n${text}',
+            temperature: 0.7
         };
         
         fs.writeFileSync(
@@ -176,8 +176,8 @@ export function loadLlmActions(): LlmAction[] {
             JSON.stringify(improveAction, null, 2)
         );
         fs.writeFileSync(
-            path.join(actionsPath, 'explain-code.json'),
-            JSON.stringify(explainAction, null, 2)
+            path.join(actionsPath, 'expand-notes.json'),
+            JSON.stringify(expandAction, null, 2)
         );
     }
 
