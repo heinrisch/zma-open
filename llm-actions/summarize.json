@@ -1,6 +1,0 @@
-{
-  "name": "Summarize",
-  "description": "Summarize the selected text",
-  "systemPrompt": "You are a helpful assistant that summarizes text concisely.",
-  "userPromptTemplate": "Please summarize the following text:\n\n${text}"
-}

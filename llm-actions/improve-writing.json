@@ -1,6 +1,0 @@
-{
-  "name": "Improve Writing",
-  "description": "Improve grammar and clarity",
-  "systemPrompt": "You are an expert editor. Improve the grammar, clarity, and style of the text while preserving its meaning.",
-  "userPromptTemplate": "${text}"
-}

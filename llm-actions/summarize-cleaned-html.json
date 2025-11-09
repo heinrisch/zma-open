@@ -1,7 +1,0 @@
-{
-  "name": "Summarize Cleaned HTML",
-  "description": "Clean HTML then summarize with LLM",
-  "systemPrompt": "You are a helpful assistant that summarizes text concisely.",
-  "userPromptTemplate": "Summarize the following content:\n\n${text}",
-  "cleanHtml": true
-}

@@ -1,7 +1,0 @@
-{
-  "name": "Expand Notes",
-  "description": "Expand brief notes into detailed explanations",
-  "systemPrompt": "You are a helpful assistant that expands brief notes into clear, detailed explanations while maintaining the original meaning.",
-  "userPromptTemplate": "Expand these notes into a more detailed explanation:\n\n${text}",
-  "temperature": 0.7
-}

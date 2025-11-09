@@ -25,21 +25,18 @@ export function activateLlmActions(context: vscode.ExtensionContext) {
         const selection = editor.selection;
         const text = editor.document.getText(selection) || '';
 
-        // Load LLM configuration
         const config = loadLlmConfig();
         if (!config) {
             vscode.window.showErrorMessage('LLM configuration not found. Create llm-config.json in workspace root.');
             return;
         }
 
-        // Load available actions
         const actions = loadLlmActions();
         if (actions.length === 0) {
             vscode.window.showErrorMessage('No LLM actions found');
             return;
         }
 
-        // Let user select action
         const selectedAction = await vscode.window.showQuickPick(
             actions.map(action => ({
                 label: action.name,
@@ -51,7 +48,6 @@ export function activateLlmActions(context: vscode.ExtensionContext) {
 
         if (!selectedAction) return;
 
-        // Execute action with progress indicator
         vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
             title: `Running ${selectedAction.label}...`,
@@ -60,7 +56,6 @@ export function activateLlmActions(context: vscode.ExtensionContext) {
             try {
                 const result = await runLlmAction(config, selectedAction.action, text);
                 
-                // Replace selection with result
                 editor.edit(editBuilder => {
                     editBuilder.replace(selection, result);
                 });
@@ -78,7 +73,7 @@ export async function runLlmAction(
     action: LlmAction,
     text: string
 ): Promise<string> {
-    // Pre-process text with cleanHtml if enabled
+
     let processedText = text;
     if (action.cleanHtml) {
         processedText = cleanHtmlForMarkdown(text);
@@ -105,7 +100,6 @@ export async function runLlmAction(
         }
     ];
 
-    // Get completion
     return await client.complete(messages);
 }
 
@@ -152,7 +146,6 @@ export function loadLlmActions(): LlmAction[] {
     if (!fs.existsSync(actionsPath)) {
         fs.mkdirSync(actionsPath, { recursive: true });
         
-        // Create example actions
         const summarizeAction: LlmAction = {
             name: 'Summarize',
             description: 'Summarize the selected text',
@@ -175,14 +168,6 @@ export function loadLlmActions(): LlmAction[] {
             temperature: 0.7
         };
         
-        const cleanHtmlAction: LlmAction = {
-            name: 'Clean HTML',
-            description: 'Remove HTML tags and formatting for markdown',
-            systemPrompt: 'You are a text processing assistant. Your task is to clean HTML content by removing scripts, styles, comments, unnecessary attributes, and non-essential tags while preserving links, basic formatting (bold, italic, headings), lists, and text structure. Return only the cleaned text without any additional commentary.',
-            userPromptTemplate: 'Clean this HTML content for markdown use, keeping only essential formatting (links, bold, italic, headings, lists) and removing everything else:\n\n${text}',
-            temperature: 0.1
-        };
-        
         const summarizeCleanedHtmlAction: LlmAction = {
             name: 'Summarize Cleaned HTML',
             description: 'Clean HTML then summarize with LLM',
@@ -202,10 +187,6 @@ export function loadLlmActions(): LlmAction[] {
         fs.writeFileSync(
             path.join(actionsPath, 'expand-notes.json'),
             JSON.stringify(expandAction, null, 2)
-        );
-        fs.writeFileSync(
-            path.join(actionsPath, 'clean-html.json'),
-            JSON.stringify(cleanHtmlAction, null, 2)
         );
         fs.writeFileSync(
             path.join(actionsPath, 'summarize-cleaned-html.json'),
