@@ -8,6 +8,7 @@ ZMA now supports integration with OpenAI-compatible LLM APIs, including local mo
 - **OpenAI-Compatible**: Works with any OpenAI-compatible API
 - **Configurable**: Easy JSON-based configuration
 - **Action-Based**: Define reusable LLM actions for common tasks
+- **HTML Pre-Processing**: Optional cleanHtml flag to sanitize HTML before LLM processing
 
 ## Setup
 
@@ -78,6 +79,17 @@ Actions are stored in the `llm-actions/` folder in your workspace. Each action i
 }
 ```
 
+**Example with HTML Pre-Processing: `llm-actions/summarize-cleaned-html.json`**
+```json
+{
+  "name": "Summarize Cleaned HTML",
+  "description": "Clean HTML then summarize with LLM",
+  "systemPrompt": "You are a helpful assistant that summarizes text concisely.",
+  "userPromptTemplate": "Summarize the following content:\n\n${text}",
+  "cleanHtml": true
+}
+```
+
 **Action Properties:**
 - `name`: Display name in the quick pick menu
 - `description`: Description shown in the quick pick menu
@@ -85,6 +97,23 @@ Actions are stored in the `llm-actions/` folder in your workspace. Each action i
 - `userPromptTemplate`: User message template (use `${text}` for selected text)
 - `temperature` (optional): Override default temperature for this action
 - `maxTokens` (optional): Override default max tokens for this action
+- `cleanHtml` (optional): If `true`, applies HTML cleaning before sending to LLM (removes scripts, styles, comments, and non-essential tags)
+
+## HTML Pre-Processing
+
+When `cleanHtml: true` is set in an action, the selected text is automatically cleaned before being sent to the LLM:
+
+- **Removes**: Scripts, styles, comments, unnecessary attributes, non-essential tags
+- **Preserves**: Links, headings, bold, italic, lists, code blocks, basic structure
+- **Normalizes**: Whitespace and HTML entities
+
+This is identical to the `cleanHtml` feature in CLI Actions, allowing you to process web content or HTML snippets before LLM analysis.
+
+**Use cases:**
+- Summarizing web pages copied from browsers
+- Processing HTML emails
+- Extracting content from HTML documentation
+- Any workflow where you need clean text from HTML sources
 
 ## Usage
 
@@ -109,6 +138,7 @@ Provides the VS Code integration:
 - Registers the `zma.runLlmAction` command
 - Loads configuration and actions
 - Shows quick pick menu
+- Applies HTML pre-processing if `cleanHtml` is enabled
 - Replaces selected text with LLM response
 
 ## Examples
