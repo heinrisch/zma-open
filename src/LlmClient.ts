@@ -75,7 +75,6 @@ export class LlmClient {
             baseUrl += '/';
         }
 
-        // Remove leading slash from endpoint to treat it as relative to baseUrl path
         const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
 
         const url = new URL(cleanEndpoint, baseUrl);
@@ -127,7 +126,7 @@ export class LlmClient {
                 reject(new Error('Request timed out'));
             });
 
-            req.setTimeout(120 * 1000); // 60 second timeout
+            req.setTimeout(120 * 1000);
             req.write(postData);
             req.end();
         });

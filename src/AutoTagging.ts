@@ -49,21 +49,77 @@ export function activateAutoTagging(context: vscode.ExtensionContext) {
             return;
         }
 
-        // Clean up link name (remove brackets if present)
         linkName = linkName.replace(/^\[\[|\]\]$/g, '');
 
         await autoTagLink(linkName);
     });
 
     context.subscriptions.push(disposable);
+
+    let disposableNext = vscode.commands.registerCommand('zma.autoTagNextUntagged', async () => {
+        await autoTagNextUntagged();
+    });
+    context.subscriptions.push(disposableNext);
 }
 
-async function autoTagLink(linkName: string) {
+async function autoTagNextUntagged() {
+    const index = sharedIndex2();
+    const allFiles = index.allFiles();
+
+    const untaggedFiles = allFiles.filter(f => f.tags.length === 0);
+
+    if (untaggedFiles.length === 0) {
+        vscode.window.showInformationMessage('No untagged files found!');
+        return;
+    }
+
+    untaggedFiles.sort((a, b) => {
+        const countA = index.linkRawOccurances(a.link.linkName());
+        const countB = index.linkRawOccurances(b.link.linkName());
+        return countB - countA;
+    });
+
+    const total = untaggedFiles.length;
+
+    await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: `Auto-tagging ${total} files...`,
+        cancellable: true
+    }, async (progress, token) => {
+        for (let i = 0; i < total; i++) {
+            if (token.isCancellationRequested) {
+                break;
+            }
+
+            const file = untaggedFiles[i];
+            const linkName = file.link.linkName();
+            const count = index.linkRawOccurances(linkName);
+
+            progress.report({
+                message: `${i + 1}/${total}: ${linkName} (${count} occurrences)`,
+                increment: (1 / total) * 100
+            });
+
+            try {
+                await autoTagLink(linkName, false);
+            } catch (error) {
+                console.error(`Failed to tag ${linkName}:`, error);
+            }
+        }
+    });
+
+    vscode.window.showInformationMessage('Auto-tagging complete!');
+}
+
+async function autoTagLink(linkName: string, showNotification: boolean = true) {
     const index = sharedIndex2();
     const linkLocations = index.linkLocations().filter(ll => ll.link.linkName() === linkName);
 
     if (linkLocations.length === 0) {
-        vscode.window.showInformationMessage(`No occurrences found for link: ${linkName}`);
+        if (showNotification) {
+            vscode.window.showInformationMessage(`No occurrences found for link: ${linkName}`);
+        }
+        return;
     }
 
     const contexts: string[] = [];
@@ -78,7 +134,11 @@ async function autoTagLink(linkName: string) {
 
     const config = loadLlmConfig();
     if (!config) {
-        vscode.window.showErrorMessage('LLM configuration not found. Create llm-config.json in workspace root.');
+        if (showNotification) {
+            vscode.window.showErrorMessage('LLM configuration not found. Create llm-config.json in workspace root.');
+        } else {
+            console.error('LLM configuration not found. Create llm-config.json in workspace root.');
+        }
         return;
     }
 
@@ -90,38 +150,62 @@ async function autoTagLink(linkName: string) {
     const contextText = contexts.join('\n\n---\n\n');
     const prompt = userPromptTemplate.replace('${linkName}', linkName).replace('${context}', contextText);
 
-    vscode.window.withProgress({
-        location: vscode.ProgressLocation.Notification,
-        title: `Generating tags for ${linkName}...`,
-        cancellable: false
-    }, async () => {
-        try {
-            const client = new LlmClient({
-                ...config,
-                model: action.model ?? config.model,
-                temperature: action.temperature ?? config.temperature,
-                maxTokens: action.maxTokens ?? config.maxTokens
-            });
+    if (showNotification) {
+        vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `Generating tags for ${linkName}...`,
+            cancellable: false
+        }, async () => {
+            await runTagging(config, action, systemPrompt, prompt, linkName, showNotification);
+        });
+    } else {
+        await runTagging(config, action, systemPrompt, prompt, linkName, showNotification);
+    }
+}
 
-            const messages: LlmMessage[] = [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: prompt }
-            ];
+async function runTagging(
+    config: LlmClientConfig,
+    action: AutoTagAction,
+    systemPrompt: string,
+    prompt: string,
+    linkName: string,
+    showNotification: boolean
+) {
+    try {
+        const client = new LlmClient({
+            ...config,
+            model: action.model ?? config.model,
+            temperature: action.temperature ?? config.temperature,
+            maxTokens: action.maxTokens ?? config.maxTokens
+        });
 
-            const response = await client.complete(messages);
-            const tags = parseTags(response);
+        const messages: LlmMessage[] = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: prompt }
+        ];
 
-            if (tags.length > 0) {
-                await applyTags(linkName, tags);
+        const response = await client.complete(messages);
+        const tags = parseTags(response);
+
+        if (tags.length > 0) {
+            await applyTags(linkName, tags);
+            if (showNotification) {
                 vscode.window.showInformationMessage(`Added tags to ${linkName}: ${tags.join(', ')}`);
-            } else {
+            }
+        } else {
+            if (showNotification) {
                 vscode.window.showInformationMessage(`No tags generated for ${linkName}`);
             }
-
-        } catch (error: unknown) {
-            vscode.window.showErrorMessage(`Auto-tagging failed: ${error instanceof Error ? error.message : String(error)}`);
         }
-    });
+
+    } catch (error: unknown) {
+        const msg = `Auto-tagging failed: ${error instanceof Error ? error.message : String(error)}`;
+        if (showNotification) {
+            vscode.window.showErrorMessage(msg);
+        } else {
+            console.error(msg);
+        }
+    }
 }
 
 function loadAutoTagAction(): AutoTagAction {
@@ -167,7 +251,6 @@ function loadAutoTagAction(): AutoTagAction {
 }
 
 function parseTags(response: string): string[] {
-    // Remove any "Tags:" prefix or markdown code blocks
     let cleanResponse = response.replace(/^Tags:\s*/i, '').replace(/```/g, '').trim();
     return cleanResponse.split(',').map(t => t.trim()).filter(t => t.length > 0);
 }
@@ -177,9 +260,6 @@ async function applyTags(linkName: string, newTags: string[]) {
     const file = index.allFiles().find(f => f.link.linkName() === linkName);
 
     if (!file) {
-        // File doesn't exist, maybe create it? 
-        // Or maybe the link exists but the file doesn't.
-        // For now, only tag existing files.
         vscode.window.showWarningMessage(`File for ${linkName} not found. Cannot add tags.`);
         return;
     }
@@ -188,7 +268,6 @@ async function applyTags(linkName: string, newTags: string[]) {
     const document = await vscode.workspace.openTextDocument(uri);
     const text = document.getText();
 
-    // Check for existing tags
     const tagMatch = text.match(RegexPatterns.RE_TAGS());
     let newText = text;
 

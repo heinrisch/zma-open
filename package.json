@@ -139,6 +139,10 @@
       {
         "command": "zma.autoTagLink",
         "title": "ZMA: Auto Tag Link (LLM)"
+      },
+      {
+        "command": "zma.autoTagNextUntagged",
+        "title": "ZMA: Auto Tag Next Untagged Link"
       }
     ],
     "menus": {
@@ -237,6 +241,11 @@
         "command": "zma.autoTagLink",
         "key": "ctrl+k a",
         "mac": "cmd+k a"
+      },
+      {
+        "command": "zma.autoTagNextUntagged",
+        "key": "ctrl+k n",
+        "mac": "cmd+k n"
       }
     ],
     "viewsContainers": {

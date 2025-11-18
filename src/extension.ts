@@ -22,7 +22,6 @@ import { activateInsertDocument } from './InsertDocument';
 import { activateAutoTagging } from './AutoTagging';
 
 export async function activate(context: vscode.ExtensionContext) {
-  console.log('ZMA Extension: activate function called!');
 
   await ensurePagesFolderAndIntroduction(context);
 
@@ -143,14 +142,11 @@ export async function activate(context: vscode.ExtensionContext) {
     hashtagNodeProvider.refresh();
     taskProvider.refresh();
   });
-
-  console.log('ZMA is now active!');
 }
 
 async function ensurePagesFolderAndIntroduction(context: vscode.ExtensionContext): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
-    console.log('ZMA Extension: No workspace folder open. Skipping pages folder creation.');
     return;
   }
   const workspaceRoot = workspaceFolders[0].uri;
