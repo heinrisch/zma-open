@@ -40,7 +40,7 @@ export class ScoringUtils {
     let searchPenalty = searchMiss / search.length;
     return score * (2 - (textPenalty + searchPenalty));
   };
-  
+
   static dateScore = (targetDate: Date): number => {
     const now = new Date();
     const millisecondsInDay = 24 * 60 * 60 * 1000;
@@ -63,7 +63,7 @@ export class ScoringUtils {
     const differenceInMilliseconds = Math.abs(now.getTime() - targetDate.getTime());
     const differenceInDays = differenceInMilliseconds / millisecondsInDay;
 
-    const halfLife = 7; // Half-life in days, where score should be 0.5
+    const halfLife = 31; // Half-life in days, where score should be 0.5
 
     const score = Math.exp(-Math.log(2) * (differenceInDays / halfLife));
 
@@ -79,7 +79,7 @@ export class ScoringUtils {
 
     const score = scalingFactor * Math.log(diff / halfOccurrence + 1)
 
-    return Math.max(score, this.minScore);
+    return Math.min(1, Math.max(score, this.minScore));
   };
 
   static scoreSearchInHref = (search: string, text: string): number => {
@@ -120,5 +120,17 @@ export class ScoringUtils {
     let f = ScoringUtils.frequencyScore(match);
     f = f > ScoringUtils.minScore ? f : ScoringUtils.minScore
     return s * d * f;
+  };
+
+  static scoreAutocompleteParts = (search: string, match: string): number[] => {
+    const s = ScoringUtils.matchScore(search, match);
+    if (s === 0) {
+      return [0, 0, 0, 0];
+    }
+    const ed = getLastEditedIndexed(match);
+    const d = ed ? ScoringUtils.recentcyScore(ed) : ScoringUtils.minScore;
+    let f = ScoringUtils.frequencyScore(match);
+    f = f > ScoringUtils.minScore ? f : ScoringUtils.minScore
+    return [s * d * f, s, d, f];
   };
 }

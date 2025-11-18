@@ -116,7 +116,7 @@ export class Index2 {
   public linkScoringOccurances(): number {
     if (this._linkScoringOccurances === null) {
       let allOccurancesSorted = Array.from(this._linkRawOccurances!.values()).sort((a, b) => b - a);
-      allOccurancesSorted.slice(0, Math.floor(allOccurancesSorted.length / 10)); // Top 10%
+      allOccurancesSorted = allOccurancesSorted.slice(0, Math.floor(allOccurancesSorted.length / 10)); // Top 10%
       this._linkScoringOccurances = allOccurancesSorted
         .reduce((a, b) => a + b, 0) / allOccurancesSorted.length;
     }
@@ -124,7 +124,7 @@ export class Index2 {
   }
 
   private _allActiveTasks: Task[] | null = null;
-  
+
   public allActiveTasks(): Task[] {
     if (this._allActiveTasks === null) {
       this._allActiveTasks = this.allFiles().flatMap(f => f.tasks.filter(t => t.state !== TaskState.Done));
@@ -372,32 +372,32 @@ async function addLinkAliasAndTagHeaders(index: Index2) {
       await vscode.workspace.fs.writeFile(uri, Buffer.from(contentString));
     }
   });
-  
+
   for (const file of index.allFiles()) {
     const linkName = file.link.linkName();
     const tagsInFile = file.tags;
-    
+
     const tagsFromIndex = getTagsForLink(linkName);
-    
+
     if (tagsFromIndex.length > 0) {
       const uri = vscode.Uri.file(file.link.filePath());
       const content = await vscode.workspace.fs.readFile(uri);
       let contentString = content.toString();
-      
+
       const allTags = Array.from(new Set([...tagsInFile, ...tagsFromIndex]));
-      
+
       const tagsHeader = `tags:: ${allTags.join(', ')}`;
-      
+
       const existingTagsMatch = contentString.match(RegexPatterns.RE_TAGS());
-      
+
       if (existingTagsMatch) {
         contentString = contentString.replace(RegexPatterns.RE_TAGS(), tagsHeader);
       } else {
         contentString = tagsHeader + '\n' + contentString;
       }
-      
+
       await vscode.workspace.fs.writeFile(uri, Buffer.from(contentString));
-      
+
       removeTagsForLink(linkName, true);
     }
   }

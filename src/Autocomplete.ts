@@ -32,17 +32,18 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
   const startTime = Date.now();
 
   const completionItems = sharedIndex2().autoCompleteItems()
+
     .filter((a: AutocompleteItem): boolean => suggestHeader || a.type !== AutocompleteType.HEADER)
-    .map((a): [AutocompleteItem, number] => [a, ScoringUtils.scoreAutocomplete(text, a.text)])
-    .filter(([, score]) => score >= ScoringUtils.minScore)
-    .sort(([, a], [, b]) => b - a)
+    .map((a): [AutocompleteItem, number[]] => [a, ScoringUtils.scoreAutocompleteParts(text, a.text)])
+    .filter(([, score]) => score[0] >= ScoringUtils.minScore)
+    .sort(([, a], [, b]) => b[0] - a[0])
     .slice(0, 50)
     .map(([a, score], index): CompletionItem => {
       const insert = shouldHaveBrackets
         ? `${AcData[a.type].prefix}${a.completion}${AcData[a.type].suffix}`
         : a.completion;
       return {
-        label: a.text + ` (${score.toFixed(2)})`,
+        label: a.text + ` (${score[0].toFixed(2)} [${score.slice(1, score.length).map(s => s.toFixed(2)).join(', ')}])`,
         insertText: insert,
         filterText: text, // Was toAutocompleteString(a.text). Trying to override vscode's own filtering
         kind: AcData[a.type].type,
