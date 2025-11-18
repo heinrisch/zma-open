@@ -55,8 +55,10 @@ export class LlmClient {
             stream: false
         };
 
-        const response = await this.makeRequest('/v1/chat/completions', request);
-        
+        const endpoint = 'chat/completions';
+
+        const response = await this.makeRequest(endpoint, request);
+
         if (!response.choices || response.choices.length === 0) {
             throw new Error('No completion choices returned from LLM');
         }
@@ -68,7 +70,15 @@ export class LlmClient {
         endpoint: string,
         body: LlmCompletionRequest
     ): Promise<LlmCompletionResponse> {
-        const url = new URL(endpoint, this.config.baseUrl);
+        let baseUrl = this.config.baseUrl;
+        if (!baseUrl.endsWith('/')) {
+            baseUrl += '/';
+        }
+
+        // Remove leading slash from endpoint to treat it as relative to baseUrl path
+        const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+
+        const url = new URL(cleanEndpoint, baseUrl);
         const isHttps = url.protocol === 'https:';
         const httpModule = isHttps ? https : http;
 
@@ -100,7 +110,7 @@ export class LlmClient {
                             const response = JSON.parse(data) as LlmCompletionResponse;
                             resolve(response);
                         } else {
-                            reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                            reject(new Error(`HTTP ${res.statusCode} ${res.statusMessage || ''} (${url.toString()}): ${data}`));
                         }
                     } catch (error) {
                         reject(new Error(`Failed to parse response: ${error instanceof Error ? error.message : String(error)}`));
@@ -109,7 +119,7 @@ export class LlmClient {
             });
 
             req.on('error', (error) => {
-                reject(new Error(`Request failed: ${error.message}`));
+                reject(new Error(`Request to ${url.toString()} failed: ${error.message}`));
             });
 
             req.on('timeout', () => {

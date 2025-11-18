@@ -135,6 +135,10 @@
       {
         "command": "zma.addTagsToCurrentLink",
         "title": "ZMA: Add Tags to Current Link"
+      },
+      {
+        "command": "zma.autoTagLink",
+        "title": "ZMA: Auto Tag Link (LLM)"
       }
     ],
     "menus": {
@@ -228,6 +232,11 @@
         "command": "zma.addTagsToCurrentLink",
         "key": "ctrl+k t",
         "mac": "cmd+k t"
+      },
+      {
+        "command": "zma.autoTagLink",
+        "key": "ctrl+k a",
+        "mac": "cmd+k a"
       }
     ],
     "viewsContainers": {

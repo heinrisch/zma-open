@@ -90,7 +90,7 @@ export async function runLlmAction(
         },
         {
             role: 'user',
-            content: action.userPromptTemplate 
+            content: action.userPromptTemplate
                 ? action.userPromptTemplate.replace('${text}', processedText)
                 : processedText
         }
@@ -106,7 +106,8 @@ export function loadLlmConfig(): LlmClientConfig | null {
     const configPath = path.join(folder, 'llm-config.json');
     if (!fs.existsSync(configPath)) {
         const exampleConfig: LlmClientConfig = {
-            baseUrl: 'http://localhost:11434',
+            baseUrl: 'http://localhost:11434/v1',
+            apiKey: 'optional-api-key',
             model: 'llama3.2',
             temperature: 0.7,
             maxTokens: 2000

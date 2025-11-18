@@ -19,6 +19,7 @@ import { activateCliActions } from './CliAction';
 import { activateLlmActions } from './LlmActions';
 import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
 import { activateInsertDocument } from './InsertDocument';
+import { activateAutoTagging } from './AutoTagging';
 
 export async function activate(context: vscode.ExtensionContext) {
   console.log('ZMA Extension: activate function called!');
@@ -37,6 +38,7 @@ export async function activate(context: vscode.ExtensionContext) {
   activateTodayIndicator();
   activateCliActions(context);
   activateLlmActions(context);
+  activateAutoTagging(context);
   activateInsertDocument(context);
   registerMarkdownInlineUrlFold(context);
 
