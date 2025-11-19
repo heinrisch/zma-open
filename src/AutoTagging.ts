@@ -132,6 +132,16 @@ async function autoTagLink(linkName: string, showNotification: boolean = true) {
         }
     }
 
+    let fileContent = '';
+    const file = index.allFiles().find(f => f.link.linkName() === linkName);
+    if (file) {
+        try {
+            fileContent = fs.readFileSync(file.link.filePath(), 'utf8');
+        } catch (e) {
+            console.error(`Failed to read file for ${linkName}:`, e);
+        }
+    }
+
     const config = loadLlmConfig();
     if (!config) {
         if (showNotification) {
@@ -148,7 +158,19 @@ async function autoTagLink(linkName: string, showNotification: boolean = true) {
     const userPromptTemplate = Array.isArray(action.userPromptTemplate) ? action.userPromptTemplate.join('\n') : action.userPromptTemplate;
 
     const contextText = contexts.join('\n\n---\n\n');
-    const prompt = userPromptTemplate.replace('${linkName}', linkName).replace('${context}', contextText);
+    let prompt = userPromptTemplate
+        .replace('${linkName}', linkName)
+        .replace('${context}', contextText);
+
+    if (fileContent) {
+        if (prompt.includes('${content}')) {
+            prompt = prompt.replace('${content}', fileContent);
+        } else {
+            prompt += `\n\nDocument Content:\n${fileContent}`;
+        }
+    } else {
+        prompt = prompt.replace('${content}', '');
+    }
 
     if (showNotification) {
         vscode.window.withProgress({
@@ -218,6 +240,9 @@ function loadAutoTagAction(): AutoTagAction {
         ],
         userPromptTemplate: [
             'Topic: ${linkName}',
+            '',
+            'Document Content:',
+            '${content}',
             '',
             'Contexts where this topic appears:',
             '${context}',
