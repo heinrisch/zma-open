@@ -12,7 +12,7 @@ export class ScoringUtils {
     let penalty: number = 0;
     let cs = isearch.shift();
     let ct = itext.shift();
-    let streak = 1;
+    let streak = 2;
     while (cs !== undefined && ct !== undefined) {
       let isMatch = false;
       if (!cs.match(/[a-z]/i)) {
@@ -26,11 +26,11 @@ export class ScoringUtils {
         cs = isearch.shift();
         ct = itext.shift();
         score += streak * streak;
-        streak += 1;
+        streak += 2;
       } else {
         ct = itext.shift();
         penalty += 1;
-        streak = 1;
+        streak = 2;
       }
     }
     penalty += itext.length;
