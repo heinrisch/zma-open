@@ -157,20 +157,15 @@ async function autoTagLink(linkName: string, showNotification: boolean = true) {
     const systemPrompt = Array.isArray(action.systemPrompt) ? action.systemPrompt.join('\n') : action.systemPrompt;
     const userPromptTemplate = Array.isArray(action.userPromptTemplate) ? action.userPromptTemplate.join('\n') : action.userPromptTemplate;
 
-    const contextText = contexts.join('\n\n---\n\n');
-    let prompt = userPromptTemplate
-        .replace('${linkName}', linkName)
-        .replace('${context}', contextText);
+    const commonTags = getCommonTags(25);
+    const commonTagsString = commonTags.join(', ');
 
-    if (fileContent) {
-        if (prompt.includes('${content}')) {
-            prompt = prompt.replace('${content}', fileContent);
-        } else {
-            prompt += `\n\nDocument Content:\n${fileContent}`;
-        }
-    } else {
-        prompt = prompt.replace('${content}', '');
-    }
+    const contextText = contexts.join('\n\n---\n\n');
+    const prompt = userPromptTemplate
+        .replace('${linkName}', linkName)
+        .replace('${context}', contextText)
+        .replace('${commonTags}', commonTagsString)
+        .replace('${content}', fileContent);
 
     if (showNotification) {
         vscode.window.withProgress({
@@ -183,6 +178,22 @@ async function autoTagLink(linkName: string, showNotification: boolean = true) {
     } else {
         await runTagging(config, action, systemPrompt, prompt, linkName, showNotification);
     }
+}
+
+function getCommonTags(limit: number = 50): string[] {
+    const index = sharedIndex2();
+    const tagCounts = new Map<string, number>();
+
+    for (const file of index.allFiles()) {
+        for (const tag of file.tags) {
+            tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+        }
+    }
+
+    return Array.from(tagCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([tag]) => tag);
 }
 
 async function runTagging(
@@ -246,6 +257,9 @@ function loadAutoTagAction(): AutoTagAction {
             '',
             'Contexts where this topic appears:',
             '${context}',
+            '',
+            'Common Tags in Workspace:',
+            '${commonTags}',
             '',
             'Suggest 3-5 relevant tags for this topic.',
             'Format: tag1, tag2, tag3'
