@@ -7,6 +7,7 @@ import { LinkLocation } from './LinkLocation';
 import { LlmClient, LlmClientConfig, LlmMessage } from './LlmClient';
 import { loadLlmConfig } from './LlmActions';
 import { RegexPatterns } from './RegexPatterns';
+import { bestAlias } from './Alias';
 
 interface AutoTagAction {
     systemPrompt: string | string[];
@@ -50,6 +51,11 @@ export function activateAutoTagging(context: vscode.ExtensionContext) {
         }
 
         linkName = linkName.replace(/^\[\[|\]\]$/g, '');
+
+        const resolvedLinkName = bestAlias(linkName);
+        if (resolvedLinkName !== linkName) {
+            linkName = resolvedLinkName;
+        }
 
         await autoTagLink(linkName);
     });
