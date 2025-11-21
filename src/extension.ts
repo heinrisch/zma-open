@@ -20,12 +20,23 @@ import { activateLlmActions } from './LlmActions';
 import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
 import { activateInsertDocument } from './InsertDocument';
 import { activateAutoTagging } from './AutoTagging';
+import { McpNotesServer } from './mcp/McpNotesServer';
+
+let mcpServer: McpNotesServer | null = null;
 
 export async function activate(context: vscode.ExtensionContext) {
 
   await ensurePagesFolderAndIntroduction(context);
 
   await reindex2();
+
+  // Start MCP server
+  mcpServer = new McpNotesServer();
+  try {
+    await mcpServer.start();
+  } catch (error) {
+    console.error('[MCP] Failed to start server:', error);
+  }
 
   activateListEditing(context);
   activateKeyboardShortcuts(context);
@@ -142,6 +153,12 @@ export async function activate(context: vscode.ExtensionContext) {
     hashtagNodeProvider.refresh();
     taskProvider.refresh();
   });
+}
+
+export async function deactivate() {
+  if (mcpServer) {
+    await mcpServer.stop();
+  }
 }
 
 async function ensurePagesFolderAndIntroduction(context: vscode.ExtensionContext): Promise<void> {
