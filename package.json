@@ -294,6 +294,7 @@
     "test-compile": "tsc -p ./"
   },
   "devDependencies": {
+    "@cfworker/json-schema": "^4.1.1",
     "@types/node": "24.8.*",
     "@types/vscode": "^1.105.0",
     "@typescript-eslint/eslint-plugin": "^8.46.1",
@@ -308,5 +309,9 @@
     "type": "git",
     "url": "https://github.com/heinrisch/zma-open"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.22.0",
+    "zod": "^3.25.76"
+  }
 }

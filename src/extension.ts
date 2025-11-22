@@ -20,6 +20,7 @@ import { activateLlmActions } from './LlmActions';
 import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
 import { activateInsertDocument } from './InsertDocument';
 import { activateAutoTagging } from './AutoTagging';
+import { startMcpServer } from './McpServer';
 
 export async function activate(context: vscode.ExtensionContext) {
 
@@ -40,6 +41,8 @@ export async function activate(context: vscode.ExtensionContext) {
   activateAutoTagging(context);
   activateInsertDocument(context);
   registerMarkdownInlineUrlFold(context);
+
+  startMcpServer(context);
 
   context.subscriptions.push(vscode.commands.registerCommand('zma.introduction', () => ensurePagesFolderAndIntroduction(context)));
 
