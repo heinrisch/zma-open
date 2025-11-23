@@ -12,6 +12,7 @@ export class SemanticSearch {
     private isGenerating: boolean = false;
     private storage: EmbeddingStorage;
     private legacyEmbeddingsPath: string;
+    private readyPromise: Promise<void>;
 
     constructor(config: EmbeddingConfig) {
         this.client = new EmbeddingClient(config);
@@ -23,7 +24,7 @@ export class SemanticSearch {
         this.legacyEmbeddingsPath = path.join(folder, 'embeddings.json');
 
         // Initialize async
-        this.init();
+        this.readyPromise = this.init();
     }
 
     private async init() {
@@ -32,6 +33,9 @@ export class SemanticSearch {
     }
 
     public async generateEmbeddings() {
+        // Wait for initialization to complete (loading existing embeddings)
+        await this.readyPromise;
+
         if (this.isGenerating) {
             console.log("Already generating embeddings");
             return;
@@ -238,7 +242,7 @@ export class SemanticSearch {
         console.log(`Loaded ${this.embeddings.length} embeddings from disk.`);
     }
 
-    public async search(query: string, limit: number = 10): Promise<EmbeddingItem[]> {
+    public async search(query: string, limit: number = 10): Promise<SearchResult[]> {
         if (this.embeddings.length === 0) {
             return [];
         }
@@ -253,7 +257,41 @@ export class SemanticSearch {
 
             scored.sort((a, b) => b.score - a.score);
 
-            return scored.slice(0, limit).map(s => s.item);
+            // Deduplicate and group
+            // Key: filePath + context hash (or just context string if short enough)
+            const grouped = new Map<string, SearchResult>();
+            const index = sharedIndex2();
+
+            for (const { item, score } of scored) {
+                const key = `${item.filePath}:${item.context}`;
+
+                if (!grouped.has(key)) {
+                    const file = index.fileForFilePath(item.filePath);
+                    const sourceLink = file ? file.link.linkName() : path.basename(item.filePath);
+                    const tags = file ? file.tags : [];
+
+                    grouped.set(key, {
+                        context: item.context,
+                        sourceLink: sourceLink,
+                        tags: tags,
+                        score: score,
+                        linkedItems: [item.linkName]
+                    });
+                } else {
+                    const existing = grouped.get(key)!;
+                    if (!existing.linkedItems.includes(item.linkName)) {
+                        existing.linkedItems.push(item.linkName);
+                    }
+                    // Keep the highest score (though they should be identical for same context)
+                    if (score > existing.score) {
+                        existing.score = score;
+                    }
+                }
+            }
+
+            return Array.from(grouped.values())
+                .sort((a, b) => b.score - a.score)
+                .slice(0, limit);
         } catch (e) {
             console.error("Search failed:", e);
             return [];
@@ -271,6 +309,14 @@ export class SemanticSearch {
         }
         return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
     }
+}
+
+export interface SearchResult {
+    context: string;
+    sourceLink: string;
+    tags: string[];
+    score: number;
+    linkedItems: string[];
 }
 
 export function loadEmbeddingConfig(): EmbeddingConfig | null {

@@ -48,10 +48,13 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
             if (!file) {
                 throw new Error(`Note not found: ${name}`);
             }
+
+            const tags = file.tags.length > 0 ? `\n\nTags: ${file.tags.join(', ')}` : '';
+
             return {
                 contents: [{
                     uri: uri.href,
-                    text: file.content
+                    text: file.content + tags
                 }]
             };
         }
@@ -60,7 +63,7 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
     server.registerTool(
         "search_notes",
         {
-            description: "Search for notes by content or title",
+            description: "Search for notes by content, title, or tags",
             inputSchema: {
                 query: z.string().describe("The search query")
             }
@@ -70,12 +73,20 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
                 return { content: [{ type: "text", text: "Index not ready" }] };
             }
             const index = sharedIndex2();
+            const lowerQuery = query.toLowerCase();
+
             const results = index.allFiles()
-                .filter(f => f.content.toLowerCase().includes(query.toLowerCase()) || f.link.linkName().toLowerCase().includes(query.toLowerCase()))
+                .filter(f => {
+                    const contentMatch = f.content.toLowerCase().includes(lowerQuery);
+                    const titleMatch = f.link.linkName().toLowerCase().includes(lowerQuery);
+                    const tagMatch = f.tags.some(t => t.toLowerCase().includes(lowerQuery));
+                    return contentMatch || titleMatch || tagMatch;
+                })
                 .slice(0, 20)
                 .map(f => ({
                     name: f.link.linkName(),
-                    preview: f.content.slice(0, 100).replace(/\n/g, ' ') + "..."
+                    preview: f.content.slice(0, 100).replace(/\n/g, ' ') + "...",
+                    tags: f.tags
                 }));
 
             return {
@@ -108,6 +119,35 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
             }
         );
     }
+
+    server.registerTool(
+        "read_note",
+        {
+            description: "Read the content of a note by its name (link name)",
+            inputSchema: {
+                name: z.string().describe("The name of the note to read")
+            }
+        },
+        async ({ name }) => {
+            if (!isIndexReady()) {
+                return { content: [{ type: "text", text: "Index not ready" }] };
+            }
+            const index = sharedIndex2();
+            const file = index.allFiles().find(f => f.link.linkName() === name);
+            if (!file) {
+                return { isError: true, content: [{ type: "text", text: `Note not found: ${name}` }] };
+            }
+
+            const tags = file.tags.length > 0 ? `\n\nTags: ${file.tags.join(', ')}` : '';
+
+            return {
+                content: [{
+                    type: "text",
+                    text: file.content + tags
+                }]
+            };
+        }
+    );
 
     const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => crypto.randomUUID(),
