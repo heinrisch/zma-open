@@ -3,7 +3,7 @@
   "publisher": "heinrisch",
   "displayName": "zma",
   "description": "Next level notes",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "engines": {
     "vscode": "^1.105.0"
   },
