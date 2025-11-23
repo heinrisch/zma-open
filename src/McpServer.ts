@@ -8,7 +8,7 @@ import { SemanticSearch, loadEmbeddingConfig } from "./SemanticSearch";
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getTaskData } from "./Tasks";
+import { getTaskData, TaskState } from "./Tasks";
 
 interface McpConfig {
     startMcpServer: boolean;
@@ -25,6 +25,33 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
     const server = new McpServer({
         name: "zma-notes",
         version: "1.0.0"
+    }, {
+        instructions: `You are an intelligent assistant for a note-taking system.
+Your goal is to help users find, understand, and synthesize information from their notes.
+
+**Note Structure & Syntax:**
+- **Format**: Notes are written in Markdown.
+- **Links**: Internal links are denoted by \`[[Note Name]]\`. External links use standard Markdown \`[Text](URL)\`.
+- **Tags**: Tags are used for categorization, appearing as \`#tag\` inline or \`tags:: tag1, tag2\` in metadata headers.
+- **Tasks**:
+  - \`TODO\`: \`- [ ] Task description\`
+  - \`DOING\`: \`- [/] Task description\`
+  - \`DONE\`: \`- [x] Task description\`
+
+**Tools & Workflow:**
+1.  **Searching**:
+    - Use \`semantic_search\` for natural language queries to find relevant contexts and concepts. This is preferred for understanding intent.
+    - Use \`search_notes\` for exact keyword matching or finding specific tags/titles.
+2.  **Reading**:
+    - Once you identify relevant notes (via search), use \`read_note\` to retrieve their full content, including tasks, links, and metadata.
+    - Always read the full note content before answering specific questions about it to ensure accuracy.
+3.  **Tasks**:
+    - Use \`get_tasks\` to list or filter tasks by status. This is useful for project management queries.
+
+**Response Guidelines:**
+- When citing information, reference the source note name (e.g., 'According to [[Project Alpha]]...').
+- If a search yields multiple relevant notes, synthesize the information across them.
+- If you cannot find information, suggest related topics based on the search results.`,
     });
 
     const embeddingConfig = loadEmbeddingConfig();
@@ -148,7 +175,6 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
                 return { isError: true, content: [{ type: "text", text: `Note not found: ${name}` }] };
             }
 
-            // Construct comprehensive data object
             const noteData = {
                 name: file.link.linkName(),
                 content: file.content,
@@ -171,6 +197,48 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
                 content: [{
                     type: "text",
                     text: JSON.stringify(noteData, null, 2)
+                }]
+            };
+        }
+    );
+
+    server.registerTool(
+        "get_tasks",
+        {
+            description: "Get tasks, optionally filtered by status (TODO, DOING, DONE)",
+            inputSchema: {
+                status: z.enum(["TODO", "DOING", "DONE"]).optional().describe("Filter by task status")
+            }
+        },
+        async ({ status }: { status?: "TODO" | "DOING" | "DONE" }) => {
+            if (!isIndexReady()) {
+                return { content: [{ type: "text", text: "Index not ready" }] };
+            }
+            const index = sharedIndex2();
+            let tasks = index.allFiles().flatMap(f => f.tasks);
+
+            if (status) {
+                tasks = tasks.filter(t => t.state === status);
+            }
+
+            const result = tasks.map(t => {
+                const td = getTaskData(t.id);
+                return {
+                    id: t.id,
+                    title: t.taskWithoutState,
+                    state: t.state,
+                    priority: t.prio(),
+                    sourceNote: t.location.link.linkName(),
+                    createdAt: td.createdAt,
+                    doneAt: t.state === TaskState.Done ? td.doneAt : undefined,
+                    snoozeUntil: td.snoozeUntil
+                };
+            });
+
+            return {
+                content: [{
+                    type: "text",
+                    text: JSON.stringify(result, null, 2)
                 }]
             };
         }
