@@ -17,8 +17,7 @@ class ZmaFile {
     public linkLocations: LinkLocation[] = [],
     public aliases: [string, string][] = [],
     public tasks: Task[] = [],
-    public tags: string[] = [],
-    public embeddings: Map<LinkLocation, number[]> = new Map()
+    public tags: string[] = []
   ) {
   }
 }
