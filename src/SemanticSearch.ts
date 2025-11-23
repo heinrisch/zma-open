@@ -242,7 +242,7 @@ export class SemanticSearch {
         console.log(`Loaded ${this.embeddings.length} embeddings from disk.`);
     }
 
-    public async search(query: string, limit: number = 10): Promise<SearchResult[]> {
+    public async search(query: string, limit: number = 10, offset: number = 0): Promise<SearchResult[]> {
         if (this.embeddings.length === 0) {
             return [];
         }
@@ -291,7 +291,7 @@ export class SemanticSearch {
 
             return Array.from(grouped.values())
                 .sort((a, b) => b.score - a.score)
-                .slice(0, limit);
+                .slice(offset, offset + limit);
         } catch (e) {
             console.error("Search failed:", e);
             return [];

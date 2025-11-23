@@ -8,6 +8,7 @@ import { SemanticSearch, loadEmbeddingConfig } from "./SemanticSearch";
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getTaskData } from "./Tasks";
 
 interface McpConfig {
     startMcpServer: boolean;
@@ -102,18 +103,27 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
         server.registerTool(
             "semantic_search",
             {
-                description: "Search for notes using semantic embeddings based on link contexts",
+                description: "Search for notes using semantic embeddings based on link contexts. Results are ordered by relevance.",
                 inputSchema: {
-                    query: z.string().describe("The search query")
+                    query: z.string().describe("The search query"),
+                    limit: z.number().optional().describe("Max number of results (default 50)"),
+                    offset: z.number().optional().describe("Offset for pagination (default 0)")
                 }
             },
-            async ({ query }) => {
+            async ({ query, limit, offset }: { query: string; limit?: number; offset?: number }) => {
                 if (!semanticSearch) return { content: [{ type: "text", text: "Semantic search not configured" }] };
-                const results = await semanticSearch.search(query);
+                const results = await semanticSearch.search(query, limit || 50, offset || 0);
+
+                // Simplify results as requested: only context and source
+                const simplified = results.map(r => ({
+                    context: r.context,
+                    source: r.sourceLink
+                }));
+
                 return {
                     content: [{
                         type: "text",
-                        text: JSON.stringify(results, null, 2)
+                        text: JSON.stringify(simplified, null, 2)
                     }]
                 };
             }
@@ -138,12 +148,29 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
                 return { isError: true, content: [{ type: "text", text: `Note not found: ${name}` }] };
             }
 
-            const tags = file.tags.length > 0 ? `\n\nTags: ${file.tags.join(', ')}` : '';
+            // Construct comprehensive data object
+            const noteData = {
+                name: file.link.linkName(),
+                content: file.content,
+                tags: file.tags,
+                aliases: file.aliases,
+                tasks: file.tasks.map(t => {
+                    const td = getTaskData(t.id);
+                    return {
+                        state: t.state,
+                        title: t.taskWithoutState,
+                        priority: t.prio(),
+                        snoozeUntil: td.snoozeUntil,
+                        createdAt: td.createdAt,
+                        doneAt: td.doneAt
+                    };
+                })
+            };
 
             return {
                 content: [{
                     type: "text",
-                    text: file.content + tags
+                    text: JSON.stringify(noteData, null, 2)
                 }]
             };
         }
