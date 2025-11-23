@@ -4,6 +4,7 @@ import { z } from "zod";
 import * as http from "http";
 import * as crypto from "crypto";
 import { sharedIndex2, isIndexReady } from "./Index2";
+import { SemanticSearch, loadEmbeddingConfig } from "./SemanticSearch";
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -24,6 +25,13 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
         name: "zma-notes",
         version: "1.0.0"
     });
+
+    const embeddingConfig = loadEmbeddingConfig();
+    let semanticSearch: SemanticSearch | null = null;
+    if (embeddingConfig) {
+        semanticSearch = new SemanticSearch(embeddingConfig);
+        void semanticSearch.generateEmbeddings();
+    }
 
     server.registerResource(
         "note",
@@ -79,6 +87,28 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
         }
     );
 
+    if (semanticSearch) {
+        server.registerTool(
+            "semantic_search",
+            {
+                description: "Search for notes using semantic embeddings based on link contexts",
+                inputSchema: {
+                    query: z.string().describe("The search query")
+                }
+            },
+            async ({ query }) => {
+                if (!semanticSearch) return { content: [{ type: "text", text: "Semantic search not configured" }] };
+                const results = await semanticSearch.search(query);
+                return {
+                    content: [{
+                        type: "text",
+                        text: JSON.stringify(results, null, 2)
+                    }]
+                };
+            }
+        );
+    }
+
     const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => crypto.randomUUID(),
         enableJsonResponse: true
@@ -110,6 +140,16 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
             transport.close();
         }
     });
+
+    if (semanticSearch) {
+        context.subscriptions.push(
+            vscode.workspace.onDidSaveTextDocument(async (document) => {
+                if (document.languageId === 'markdown' || document.fileName.endsWith('.md')) {
+                    await semanticSearch!.updateForFile(document.fileName, document.getText());
+                }
+            })
+        );
+    }
 }
 
 function loadMcpConfig(): McpConfig | null {
