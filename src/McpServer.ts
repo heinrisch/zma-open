@@ -5,8 +5,21 @@ import * as http from "http";
 import * as crypto from "crypto";
 import { sharedIndex2, isIndexReady } from "./Index2";
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+
+interface McpConfig {
+    startMcpServer: boolean;
+    port?: number;
+}
 
 export async function startMcpServer(context: vscode.ExtensionContext) {
+    const config = loadMcpConfig();
+    if (!config || !config.startMcpServer) {
+        console.log("MCP Server disabled in config");
+        return;
+    }
+
     const server = new McpServer({
         name: "zma-notes",
         version: "1.0.0"
@@ -84,12 +97,11 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
         }
     });
 
-    httpServer.listen(0, () => {
-        const addr = httpServer.address();
-        if (addr && typeof addr === 'object') {
-            console.log(`MCP Server running on port ${addr.port}`);
-            // vscode.window.showInformationMessage(`MCP Server running on port ${addr.port}`);
-        }
+    const port = config.port || 42461;
+
+    httpServer.listen(port, () => {
+        console.log(`MCP Server running on port ${port}`);
+        // vscode.window.showInformationMessage(`MCP Server running on port ${port}`);
     });
 
     context.subscriptions.push({
@@ -98,4 +110,30 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
             transport.close();
         }
     });
+}
+
+function loadMcpConfig(): McpConfig | null {
+    const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    if (!folder) {
+        return null;
+    }
+    const configPath = path.join(folder, 'mcp-config.json');
+    if (!fs.existsSync(configPath)) {
+        const defaultConfig: McpConfig = {
+            startMcpServer: false,
+            port: 42461
+        };
+        fs.writeFileSync(
+            configPath,
+            JSON.stringify(defaultConfig, null, 2) + '\n'
+        );
+        return defaultConfig;
+    }
+    try {
+        const configData = fs.readFileSync(configPath, 'utf8');
+        return JSON.parse(configData) as McpConfig;
+    } catch (error) {
+        console.error('Failed to load MCP config:', error);
+        return null;
+    }
 }
