@@ -1,11 +1,43 @@
+# Exclude source files
 .vscode/**
 .vscode-test/**
 src/**
+**/*.ts
+
+# Exclude all compiled files except main.js
+out/**
+!out/main.js
+
+# Exclude source maps
+**/*.map
+
+# Exclude development files
 .gitignore
 .yarnrc
+.prettierrc
+.eslintrc.json
 vsc-extension-quickstart.md
 **/tsconfig.json
 **/.eslintrc.json
-**/*.map
-**/*.ts
 **/.vscode-test.*
+build_all.sh
+restore_links.py
+
+# Exclude config files (users should create their own)
+llm-config.json
+embedding-config.json
+mcp-config.json
+
+# Exclude node_modules (bundled into main.js)
+node_modules/**
+
+# Exclude git files
+.git/**
+.github/**
+.gitignore
+
+# Exclude old VSIX files
+*.vsix
+
+# Exclude images directory if it exists
+images/**
