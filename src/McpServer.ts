@@ -13,6 +13,7 @@ import { getTaskData, TaskState } from "./Tasks";
 interface McpConfig {
     startMcpServer: boolean;
     port?: number;
+    verbose?: boolean;
 }
 
 export async function startMcpServer(context: vscode.ExtensionContext) {
@@ -21,6 +22,15 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
         console.log("MCP Server disabled in config");
         return;
     }
+
+    const verbose = config.verbose ?? false;
+    const log = (msg: string, ...args: any[]) => {
+        if (verbose) {
+            console.log(`[MCP] ${msg}`, ...args);
+        }
+    };
+
+    log("Starting MCP Server...");
 
     const server = new McpServer({
         name: "zma-notes",
@@ -57,6 +67,7 @@ Your goal is to help users find, understand, and synthesize information from the
     const embeddingConfig = loadEmbeddingConfig();
     let semanticSearch: SemanticSearch | null = null;
     if (embeddingConfig) {
+        log("Initializing Semantic Search...");
         semanticSearch = new SemanticSearch(embeddingConfig);
         void semanticSearch.generateEmbeddings();
     }
@@ -68,6 +79,7 @@ Your goal is to help users find, understand, and synthesize information from the
             mimeType: "text/markdown"
         },
         async (uri, { name }) => {
+            log(`Resource requested: note://${name}`);
             if (!isIndexReady()) {
                 throw new Error("Index not ready");
             }
@@ -97,6 +109,7 @@ Your goal is to help users find, understand, and synthesize information from the
             }
         },
         async ({ query }) => {
+            log(`Tool called: search_notes with query "${query}"`);
             if (!isIndexReady()) {
                 return { content: [{ type: "text", text: "Index not ready" }] };
             }
@@ -138,6 +151,7 @@ Your goal is to help users find, understand, and synthesize information from the
                 }
             },
             async ({ query, limit, offset }: { query: string; limit?: number; offset?: number }) => {
+                log(`Tool called: semantic_search with query "${query}"`);
                 if (!semanticSearch) return { content: [{ type: "text", text: "Semantic search not configured" }] };
                 const results = await semanticSearch.search(query, limit || 50, offset || 0);
 
@@ -166,6 +180,7 @@ Your goal is to help users find, understand, and synthesize information from the
             }
         },
         async ({ name }) => {
+            log(`Tool called: read_note for "${name}"`);
             if (!isIndexReady()) {
                 return { content: [{ type: "text", text: "Index not ready" }] };
             }
@@ -211,6 +226,7 @@ Your goal is to help users find, understand, and synthesize information from the
             }
         },
         async ({ status }: { status?: "TODO" | "DOING" | "DONE" }) => {
+            log(`Tool called: get_tasks with status "${status}"`);
             if (!isIndexReady()) {
                 return { content: [{ type: "text", text: "Index not ready" }] };
             }
@@ -253,6 +269,7 @@ Your goal is to help users find, understand, and synthesize information from the
 
     const httpServer = http.createServer(async (req, res) => {
         const url = new URL(req.url || "", `http://${req.headers.host}`);
+        log(`Incoming request: ${req.method} ${url.pathname}`);
 
         if (url.pathname === "/sse" || url.pathname === "/messages" || url.pathname === "/mcp") {
             await transport.handleRequest(req, res);
@@ -266,11 +283,13 @@ Your goal is to help users find, understand, and synthesize information from the
 
     httpServer.listen(port, () => {
         console.log(`MCP Server running on port ${port}`);
+        log(`MCP Server listening on port ${port}`);
         // vscode.window.showInformationMessage(`MCP Server running on port ${port}`);
     });
 
     context.subscriptions.push({
         dispose: () => {
+            log("Stopping MCP Server...");
             httpServer.close();
             transport.close();
         }
@@ -280,6 +299,7 @@ Your goal is to help users find, understand, and synthesize information from the
         context.subscriptions.push(
             vscode.workspace.onDidSaveTextDocument(async (document) => {
                 if (document.languageId === 'markdown' || document.fileName.endsWith('.md')) {
+                    log(`Updating semantic search for file: ${document.fileName}`);
                     await semanticSearch!.updateForFile(document.fileName, document.getText());
                 }
             })
@@ -296,7 +316,8 @@ function loadMcpConfig(): McpConfig | null {
     if (!fs.existsSync(configPath)) {
         const defaultConfig: McpConfig = {
             startMcpServer: false,
-            port: 42461
+            port: 42461,
+            verbose: false
         };
         fs.writeFileSync(
             configPath,
