@@ -143,6 +143,14 @@
       {
         "command": "zma.autoTagNextUntagged",
         "title": "ZMA: Auto Tag Next Untagged Link"
+      },
+      {
+        "command": "zma.mcp.start",
+        "title": "ZMA: Start MCP Server"
+      },
+      {
+        "command": "zma.mcp.stop",
+        "title": "ZMA: Stop MCP Server"
       }
     ],
     "menus": {

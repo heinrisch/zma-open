@@ -16,6 +16,26 @@ interface McpConfig {
     verbose?: boolean;
 }
 
+// Module-level state for the MCP server
+let mcpServer: McpServer | null = null;
+let httpServer: http.Server | null = null;
+let transport: StreamableHTTPServerTransport | null = null;
+let semanticSearch: SemanticSearch | null = null;
+let fileWatcherDisposable: vscode.Disposable | null = null;
+let serverDisposable: vscode.Disposable | null = null;
+let extensionContext: vscode.ExtensionContext | null = null;
+let verbose: boolean = false;
+
+const log = (msg: string, ...args: any[]) => {
+    if (verbose) {
+        console.log(`[MCP] ${msg}`, ...args);
+    }
+};
+
+export function isMcpServerRunning(): boolean {
+    return mcpServer !== null && httpServer !== null;
+}
+
 export async function startMcpServer(context: vscode.ExtensionContext) {
     const config = loadMcpConfig();
     if (!config || !config.startMcpServer) {
@@ -23,16 +43,27 @@ export async function startMcpServer(context: vscode.ExtensionContext) {
         return;
     }
 
-    const verbose = config.verbose ?? false;
-    const log = (msg: string, ...args: any[]) => {
-        if (verbose) {
-            console.log(`[MCP] ${msg}`, ...args);
-        }
-    };
+    await startMcpServerManual(context);
+}
+
+export async function startMcpServerManual(context: vscode.ExtensionContext) {
+    if (isMcpServerRunning()) {
+        vscode.window.showWarningMessage("MCP Server is already running");
+        return;
+    }
+
+    extensionContext = context;
+    const config = loadMcpConfig();
+    if (!config) {
+        vscode.window.showErrorMessage("Failed to load MCP config");
+        return;
+    }
+
+    verbose = config.verbose ?? false;
 
     log("Starting MCP Server...");
 
-    const server = new McpServer({
+    mcpServer = new McpServer({
         name: "zma-notes",
         version: "1.0.0"
     }, {
@@ -65,14 +96,13 @@ Your goal is to help users find, understand, and synthesize information from the
     });
 
     const embeddingConfig = loadEmbeddingConfig();
-    let semanticSearch: SemanticSearch | null = null;
     if (embeddingConfig) {
         log("Initializing Semantic Search...");
         semanticSearch = new SemanticSearch(embeddingConfig);
         void semanticSearch.generateEmbeddings();
     }
 
-    server.registerResource(
+    mcpServer.registerResource(
         "note",
         new ResourceTemplate("note://{name}", { list: undefined }),
         {
@@ -100,7 +130,7 @@ Your goal is to help users find, understand, and synthesize information from the
         }
     );
 
-    server.registerTool(
+    mcpServer.registerTool(
         "search_notes",
         {
             description: "Search for notes by content, title, or tags",
@@ -140,7 +170,7 @@ Your goal is to help users find, understand, and synthesize information from the
     );
 
     if (semanticSearch) {
-        server.registerTool(
+        mcpServer.registerTool(
             "semantic_search",
             {
                 description: "Search for notes using semantic embeddings based on link contexts. Results are ordered by relevance.",
@@ -171,7 +201,7 @@ Your goal is to help users find, understand, and synthesize information from the
         );
     }
 
-    server.registerTool(
+    mcpServer.registerTool(
         "read_note",
         {
             description: "Read the content of a note by its name (link name)",
@@ -217,7 +247,7 @@ Your goal is to help users find, understand, and synthesize information from the
         }
     );
 
-    server.registerTool(
+    mcpServer.registerTool(
         "get_tasks",
         {
             description: "Get tasks, optionally filtered by status (TODO, DOING, DONE)",
@@ -260,19 +290,19 @@ Your goal is to help users find, understand, and synthesize information from the
         }
     );
 
-    const transport = new StreamableHTTPServerTransport({
+    transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => crypto.randomUUID(),
         enableJsonResponse: true
     });
 
-    await server.connect(transport);
+    await mcpServer.connect(transport);
 
-    const httpServer = http.createServer(async (req, res) => {
+    httpServer = http.createServer(async (req, res) => {
         const url = new URL(req.url || "", `http://${req.headers.host}`);
         log(`Incoming request: ${req.method} ${url.pathname}`);
 
         if (url.pathname === "/sse" || url.pathname === "/messages" || url.pathname === "/mcp") {
-            await transport.handleRequest(req, res);
+            await transport!.handleRequest(req, res);
         } else {
             res.writeHead(404);
             res.end();
@@ -284,27 +314,85 @@ Your goal is to help users find, understand, and synthesize information from the
     httpServer.listen(port, () => {
         console.log(`MCP Server running on port ${port}`);
         log(`MCP Server listening on port ${port}`);
-        // vscode.window.showInformationMessage(`MCP Server running on port ${port}`);
+        vscode.window.showInformationMessage(`MCP Server started on port ${port}`);
     });
 
-    context.subscriptions.push({
+    serverDisposable = {
         dispose: () => {
             log("Stopping MCP Server...");
-            httpServer.close();
-            transport.close();
+            if (httpServer) {
+                httpServer.close();
+            }
+            if (transport) {
+                transport.close();
+            }
         }
-    });
+    };
+
+    context.subscriptions.push(serverDisposable);
 
     if (semanticSearch) {
-        context.subscriptions.push(
-            vscode.workspace.onDidSaveTextDocument(async (document) => {
-                if (document.languageId === 'markdown' || document.fileName.endsWith('.md')) {
-                    log(`Updating semantic search for file: ${document.fileName}`);
-                    await semanticSearch!.updateForFile(document.fileName, document.getText());
-                }
-            })
-        );
+        fileWatcherDisposable = vscode.workspace.onDidSaveTextDocument(async (document) => {
+            if (document.languageId === 'markdown' || document.fileName.endsWith('.md')) {
+                log(`Updating semantic search for file: ${document.fileName}`);
+                await semanticSearch!.updateForFile(document.fileName, document.getText());
+            }
+        });
+        context.subscriptions.push(fileWatcherDisposable);
     }
+
+    log("MCP Server started successfully");
+}
+
+export async function stopMcpServer() {
+    if (!isMcpServerRunning()) {
+        vscode.window.showWarningMessage("MCP Server is not running");
+        return;
+    }
+
+    log("Stopping MCP Server...");
+
+    // Stop semantic search embedding generation
+    if (semanticSearch) {
+        log("Stopping semantic search...");
+        semanticSearch.stopGeneration();
+        semanticSearch = null;
+    }
+
+    // Dispose file watcher
+    if (fileWatcherDisposable) {
+        fileWatcherDisposable.dispose();
+        fileWatcherDisposable = null;
+    }
+
+    // Close HTTP server
+    if (httpServer) {
+        httpServer.close(() => {
+            log("HTTP Server closed");
+        });
+        httpServer = null;
+    }
+
+    // Close transport
+    if (transport) {
+        transport.close();
+        transport = null;
+    }
+
+    // Clear server instance
+    mcpServer = null;
+
+    // Remove from extension subscriptions if possible
+    if (serverDisposable && extensionContext) {
+        const index = extensionContext.subscriptions.indexOf(serverDisposable);
+        if (index > -1) {
+            extensionContext.subscriptions.splice(index, 1);
+        }
+        serverDisposable = null;
+    }
+
+    console.log("MCP Server stopped");
+    vscode.window.showInformationMessage("MCP Server stopped");
 }
 
 function loadMcpConfig(): McpConfig | null {

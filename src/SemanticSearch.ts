@@ -10,6 +10,7 @@ export class SemanticSearch {
     private client: EmbeddingClient;
     private embeddings: EmbeddingItem[] = [];
     private isGenerating: boolean = false;
+    private isStopped: boolean = false;
     private storage: EmbeddingStorage;
     private legacyEmbeddingsPath: string;
     private readyPromise: Promise<void>;
@@ -40,17 +41,30 @@ export class SemanticSearch {
             console.log("Already generating embeddings");
             return;
         }
+
+        if (this.isStopped) {
+            console.log("Embedding generation has been stopped");
+            return;
+        }
+
         this.isGenerating = true;
         console.log("Starting embedding generation...");
 
         try {
             while (!isIndexReady()) {
+                if (this.isStopped) {
+                    console.log("Embedding generation stopped while waiting for index");
+                    return;
+                }
                 console.log("Index not ready, waiting 1s...");
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
             const index = sharedIndex2();
             const linkLocations = index.linkLocations().filter(ll => ll.type === LinkType.LINK);
+
+            console.log(`Loaded ${this.embeddings.length} embeddings from disk`);
+            console.log(`Found ${linkLocations.length} link locations in index`);
 
             // Create a map of existing embeddings for quick lookup
             // Key: filePath:line:linkName
@@ -64,6 +78,11 @@ export class SemanticSearch {
             const itemsToEmbed: { linkName: string, context: string, filePath: string, line: number }[] = [];
 
             for (const ll of linkLocations) {
+                if (this.isStopped) {
+                    console.log("Embedding generation stopped during link processing");
+                    return;
+                }
+
                 const context = ll.context.fullContext;
                 const sourcePath = ll.location.link.filePath();
 
@@ -73,7 +92,16 @@ export class SemanticSearch {
 
                     const existing = existingMap.get(key);
                     // If it doesn't exist, or the context has changed, we need to embed it
-                    if (!existing || existing.context !== context.trim()) {
+                    if (!existing) {
+                        itemsToEmbed.push({
+                            linkName: ll.link.linkName(),
+                            context: context.trim(),
+                            filePath: sourcePath,
+                            line: ll.location.row
+                        });
+                    } else if (existing.context !== context.trim()) {
+                        console.log(`Context changed for ${ll.link.linkName()} at ${sourcePath}:${ll.location.row}`);
+                        console.log(`Old context length: ${existing.context.length}, New context length: ${context.trim().length}`);
                         itemsToEmbed.push({
                             linkName: ll.link.linkName(),
                             context: context.trim(),
@@ -102,6 +130,10 @@ export class SemanticSearch {
                 this.embeddings = newEmbeddings;
                 // Save files that had removals
                 for (const filePath of staleFiles) {
+                    if (this.isStopped) {
+                        console.log("Embedding generation stopped during cleanup");
+                        return;
+                    }
                     await this.saveFile(filePath);
                 }
             }
@@ -119,6 +151,15 @@ export class SemanticSearch {
             const modifiedFiles = new Set<string>();
 
             for (let i = 0; i < itemsToEmbed.length; i += batchSize) {
+                if (this.isStopped) {
+                    console.log("Embedding generation stopped during batch processing");
+                    // Save progress before exiting
+                    for (const filePath of modifiedFiles) {
+                        await this.saveFile(filePath);
+                    }
+                    return;
+                }
+
                 const batch = itemsToEmbed.slice(i, i + batchSize);
                 const contexts = batch.map(item => item.context);
 
@@ -172,6 +213,11 @@ export class SemanticSearch {
         } finally {
             this.isGenerating = false;
         }
+    }
+
+    public stopGeneration() {
+        this.isStopped = true;
+        console.log("Embedding generation stop requested");
     }
 
     public async updateForFile(filePath: string, content: string) {

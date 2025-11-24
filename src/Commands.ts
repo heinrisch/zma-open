@@ -8,6 +8,7 @@ import { remakeLastEditIndex } from './LastEditHandler';
 import { reindex2, sharedIndex2 } from './Index2';
 import { getTagsForLink, setTagsForLink, removeTagsForLink, getAllTags } from './TagHandler';
 import { RegexPatterns } from './RegexPatterns';
+import { startMcpServerManual, stopMcpServer } from './McpServer';
 
 export const activateCommands = (context: vscode.ExtensionContext, resetProviders: () => void) => {
   context.subscriptions.push(
@@ -199,6 +200,19 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
       }
 
       void vscode.window.showInformationMessage(`Tags updated for ${linkName}`);
+    })
+  );
+
+  // MCP Server commands
+  context.subscriptions.push(
+    vscode.commands.registerCommand('zma.mcp.start', async () => {
+      await startMcpServerManual(context);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('zma.mcp.stop', async () => {
+      await stopMcpServer();
     })
   );
 
