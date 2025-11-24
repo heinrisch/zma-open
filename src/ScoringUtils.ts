@@ -127,10 +127,13 @@ export class ScoringUtils {
     if (s === 0) {
       return [0, 0, 0, 0];
     }
+
+    const minWeight = 0.75;
     const ed = getLastEditedIndexed(match);
-    const d = ed ? ScoringUtils.recentcyScore(ed) : ScoringUtils.minScore;
+    let d = ed ? ScoringUtils.recentcyScore(ed) : minWeight;
+    d = Math.max(d, minWeight);
     let f = ScoringUtils.frequencyScore(match);
-    f = f > ScoringUtils.minScore ? f : ScoringUtils.minScore
+    f = Math.max(f, minWeight);
     return [s * d * f, s, d, f];
   };
 }
