@@ -12,7 +12,7 @@
   ],
   "activationEvents": [
     "onLanguage:markdown",
-    "onCommand:zma.introduction",
+    "onCommand:zma.init",
     "onCommand:zma.inlineFold.toggleMarkdownUrls"
   ],
   "main": "./out/main.js",
@@ -52,6 +52,10 @@
       }
     ],
     "commands": [
+      {
+        "command": "zma.init",
+        "title": "ZMA: Init"
+      },
       {
         "command": "zma.reindex",
         "title": "ZMA: Reindex"
@@ -115,10 +119,6 @@
       {
         "command": "zma.runLlmAction",
         "title": "ZMA: Run LLM Action"
-      },
-      {
-        "command": "zma.introduction",
-        "title": "ZMA: Introduction"
       },
       {
         "command": "zma.inlineFold.toggleMarkdownUrls",

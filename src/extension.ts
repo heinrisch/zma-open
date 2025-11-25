@@ -22,10 +22,53 @@ import { activateInsertDocument } from './InsertDocument';
 import { activateAutoTagging } from './AutoTagging';
 import { startMcpServer } from './McpServer';
 
+
+let hasActivatedFeatures = false;
+
 export async function activate(context: vscode.ExtensionContext) {
+  context.subscriptions.push(vscode.commands.registerCommand('zma.init', async () => {
+    await initZma(context);
+    await activateFeatures(context);
+  }));
 
-  await ensurePagesFolderAndIntroduction(context);
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    return;
+  }
+  const workspaceRoot = workspaceFolders[0].uri;
+  const pagesFolderPath = vscode.Uri.joinPath(workspaceRoot, 'pages');
+  const lastEditFilePath = vscode.Uri.joinPath(workspaceRoot, 'lastEdit.txt');
 
+  let pagesExists = false;
+  let lastEditExists = false;
+  try {
+    await vscode.workspace.fs.stat(pagesFolderPath);
+    pagesExists = true;
+  } catch (error: any) {
+    if (error.code !== 'FileNotFound') {
+      console.error('Error checking pages folder:', error);
+    }
+  }
+
+  try {
+    await vscode.workspace.fs.stat(lastEditFilePath);
+    lastEditExists = true;
+  } catch (error: any) {
+    if (error.code !== 'FileNotFound') {
+      console.error('Error checking lastEdit.txt:', error);
+    }
+  }
+
+  if (pagesExists && lastEditExists) {
+    await activateFeatures(context);
+  }
+}
+
+async function activateFeatures(context: vscode.ExtensionContext) {
+  if (hasActivatedFeatures) {
+    return;
+  }
+  hasActivatedFeatures = true;
   await reindex2();
 
   activateListEditing(context);
@@ -43,8 +86,6 @@ export async function activate(context: vscode.ExtensionContext) {
   registerMarkdownInlineUrlFold(context);
 
   startMcpServer(context);
-
-  context.subscriptions.push(vscode.commands.registerCommand('zma.introduction', () => ensurePagesFolderAndIntroduction(context)));
 
   const backlinkProvider = new BacklinkProvider();
   vscode.window.registerTreeDataProvider('pageBacklinks', backlinkProvider);
@@ -78,60 +119,6 @@ export async function activate(context: vscode.ExtensionContext) {
     await linkToMarkdownConversion(event)
   });
 
-  async function linkToMarkdownConversion(event: vscode.TextDocumentChangeEvent): Promise<void> {
-    const change: TextDocumentContentChangeEvent = event.contentChanges[0];
-    if (!change || !change.text) {
-      return;
-    }
-    const textChanged = change.text;
-
-    if (textChanged.length < 10 || !textChanged.trim().startsWith('http')) {
-      return;
-    }
-
-    try {
-      new URL(textChanged);
-    } catch {
-      return;
-    }
-
-    const url = textChanged.trim();
-    const currentSelection = vscode.window.activeTextEditor!.selection;
-    const curserPosition = vscode.window.activeTextEditor!.selection.active;
-
-
-    if (currentSelection.isEmpty === false) {
-      const selectedText = vscode.window.activeTextEditor?.document.getText(currentSelection);
-      const newText = `[${selectedText}](${url})`;
-
-      await vscode.window.activeTextEditor?.edit((editBuilder) => {
-        editBuilder.delete(new vscode.Range(curserPosition.line, 0, curserPosition.line, textChanged.length));
-        editBuilder.replace(currentSelection, newText);
-      });
-    } else {
-      const titleMatch = (await Promise.race([
-        fetch(url)
-          .then((response) => response.text())
-          .then((html) => html.match(/<title>(.*?)<\/title>/i))
-          .catch((e) => {
-            console.log('fetch error', e);
-          }),
-        new Promise((resolve) => setTimeout(() => resolve(null), 2000))
-      ])) as RegExpMatchArray | null;
-      const title = titleMatch ? titleMatch[1] : url.replace(/https?:\/\//, '');
-      const newText = `[${title}](${url})`;
-      await vscode.window.activeTextEditor?.edit((editBuilder) => {
-        editBuilder.delete(new vscode.Range(curserPosition.line, 0, curserPosition.line, textChanged.length));
-        editBuilder.insert(curserPosition || new vscode.Position(0, 0), newText);
-      });
-
-      const startPosition = new vscode.Position(curserPosition.line, 1);
-      const endPosition = new vscode.Position(curserPosition.line, title.length + 1);
-      const newSelection = new vscode.Selection(startPosition, endPosition);
-      vscode.window.activeTextEditor!.selection = newSelection;
-    }
-  }
-
   vscode.workspace.onDidSaveTextDocument(async (document) => {
     onSavedFile(document);
 
@@ -147,7 +134,61 @@ export async function activate(context: vscode.ExtensionContext) {
   });
 }
 
-async function ensurePagesFolderAndIntroduction(context: vscode.ExtensionContext): Promise<void> {
+async function linkToMarkdownConversion(event: vscode.TextDocumentChangeEvent): Promise<void> {
+  const change: TextDocumentContentChangeEvent = event.contentChanges[0];
+  if (!change || !change.text) {
+    return;
+  }
+  const textChanged = change.text;
+
+  if (textChanged.length < 10 || !textChanged.trim().startsWith('http')) {
+    return;
+  }
+
+  try {
+    new URL(textChanged);
+  } catch {
+    return;
+  }
+
+  const url = textChanged.trim();
+  const currentSelection = vscode.window.activeTextEditor!.selection;
+  const curserPosition = vscode.window.activeTextEditor!.selection.active;
+
+
+  if (currentSelection.isEmpty === false) {
+    const selectedText = vscode.window.activeTextEditor?.document.getText(currentSelection);
+    const newText = `[${selectedText}](${url})`;
+
+    await vscode.window.activeTextEditor?.edit((editBuilder) => {
+      editBuilder.delete(new vscode.Range(curserPosition.line, 0, curserPosition.line, textChanged.length));
+      editBuilder.replace(currentSelection, newText);
+    });
+  } else {
+    const titleMatch = (await Promise.race([
+      fetch(url)
+        .then((response) => response.text())
+        .then((html) => html.match(/<title>(.*?)<\/title>/i))
+        .catch((e) => {
+          console.log('fetch error', e);
+        }),
+      new Promise((resolve) => setTimeout(() => resolve(null), 2000))
+    ])) as RegExpMatchArray | null;
+    const title = titleMatch ? titleMatch[1] : url.replace(/https?:\/\//, '');
+    const newText = `[${title}](${url})`;
+    await vscode.window.activeTextEditor?.edit((editBuilder) => {
+      editBuilder.delete(new vscode.Range(curserPosition.line, 0, curserPosition.line, textChanged.length));
+      editBuilder.insert(curserPosition || new vscode.Position(0, 0), newText);
+    });
+
+    const startPosition = new vscode.Position(curserPosition.line, 1);
+    const endPosition = new vscode.Position(curserPosition.line, title.length + 1);
+    const newSelection = new vscode.Selection(startPosition, endPosition);
+    vscode.window.activeTextEditor!.selection = newSelection;
+  }
+}
+
+async function initZma(context: vscode.ExtensionContext): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
     return;
@@ -155,6 +196,7 @@ async function ensurePagesFolderAndIntroduction(context: vscode.ExtensionContext
   const workspaceRoot = workspaceFolders[0].uri;
   const pagesFolderPath = vscode.Uri.joinPath(workspaceRoot, 'pages');
   const introductionFilePath = vscode.Uri.joinPath(pagesFolderPath, 'introduction.md');
+  const lastEditFilePath = vscode.Uri.joinPath(workspaceRoot, 'lastEdit.txt');
 
   try {
     await vscode.workspace.fs.stat(pagesFolderPath);
@@ -168,6 +210,14 @@ async function ensurePagesFolderAndIntroduction(context: vscode.ExtensionContext
       await vscode.window.showTextDocument(document);
     } else {
       console.error('Error checking or creating pages folder:', error);
+    }
+  }
+
+  try {
+    await vscode.workspace.fs.stat(lastEditFilePath);
+  } catch (error: any) {
+    if (error.code === 'FileNotFound') {
+      await vscode.workspace.fs.writeFile(lastEditFilePath, new Uint8Array(0));
     }
   }
 }
