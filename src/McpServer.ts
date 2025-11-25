@@ -19,7 +19,7 @@ interface McpConfig {
 // Module-level state for the MCP server
 let mcpServer: McpServer | null = null;
 let httpServer: http.Server | null = null;
-let transport: StreamableHTTPServerTransport | null = null;
+let transports: Map<string, StreamableHTTPServerTransport> = new Map();
 let semanticSearch: SemanticSearch | null = null;
 let fileWatcherDisposable: vscode.Disposable | null = null;
 let serverDisposable: vscode.Disposable | null = null;
@@ -290,19 +290,36 @@ Your goal is to help users find, understand, and synthesize information from the
         }
     );
 
-    transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => crypto.randomUUID(),
-        enableJsonResponse: true
-    });
-
-    await mcpServer.connect(transport);
-
     httpServer = http.createServer(async (req, res) => {
         const url = new URL(req.url || "", `http://${req.headers.host}`);
         log(`Incoming request: ${req.method} ${url.pathname}`);
 
         if (url.pathname === "/sse" || url.pathname === "/messages" || url.pathname === "/mcp") {
-            await transport!.handleRequest(req, res);
+            // Get or create transport for this session
+            const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+            let transport: StreamableHTTPServerTransport;
+
+            if (sessionId && transports.has(sessionId)) {
+                // Reuse existing transport for this session
+                transport = transports.get(sessionId)!;
+                log(`Reusing transport for session: ${sessionId}`);
+            } else {
+                // Create new transport for new session
+                const newSessionId = crypto.randomUUID();
+                transport = new StreamableHTTPServerTransport({
+                    sessionIdGenerator: () => newSessionId,
+                    enableJsonResponse: true
+                });
+
+                // Connect the transport to the MCP server
+                await mcpServer!.connect(transport);
+
+                transports.set(newSessionId, transport);
+                log(`Created new transport for session: ${newSessionId} (total sessions: ${transports.size})`);
+            }
+
+            await transport.handleRequest(req, res);
         } else {
             res.writeHead(404);
             res.end();
@@ -323,9 +340,12 @@ Your goal is to help users find, understand, and synthesize information from the
             if (httpServer) {
                 httpServer.close();
             }
-            if (transport) {
+            // Close all transports
+            for (const [sessionId, transport] of transports.entries()) {
+                log(`Closing transport for session: ${sessionId}`);
                 transport.close();
             }
+            transports.clear();
         }
     };
 
@@ -373,11 +393,13 @@ export async function stopMcpServer() {
         httpServer = null;
     }
 
-    // Close transport
-    if (transport) {
+    // Close all transports
+    log(`Closing ${transports.size} transport(s)...`);
+    for (const [sessionId, transport] of transports.entries()) {
+        log(`Closing transport for session: ${sessionId}`);
         transport.close();
-        transport = null;
     }
+    transports.clear();
 
     // Clear server instance
     mcpServer = null;
