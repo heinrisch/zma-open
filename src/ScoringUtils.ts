@@ -110,30 +110,10 @@ export class ScoringUtils {
     return s * d * f;
   };
 
-  static scoreAutocomplete = (search: string, match: string): number => {
-    const s = ScoringUtils.matchScore(search, match);
-    if (s < this.minScore) {
-      return 0;
-    }
+  static occuranceCountAndDaysAgoMentioned = (match: string): number[] => {
     const ed = getLastEditedIndexed(match);
-    const d = ed ? ScoringUtils.recentcyScore(ed) : ScoringUtils.minScore;
-    let f = ScoringUtils.frequencyScore(match);
-    f = f > ScoringUtils.minScore ? f : ScoringUtils.minScore
-    return s * d * f;
-  };
-
-  static scoreAutocompleteParts = (search: string, match: string): number[] => {
-    const s = ScoringUtils.matchScore(search, match);
-    if (s === 0) {
-      return [0, 0, 0, 0];
-    }
-
-    const minWeight = 0.75;
-    const ed = getLastEditedIndexed(match);
-    let d = ed ? ScoringUtils.recentcyScore(ed) : minWeight;
-    d = Math.max(d, minWeight);
-    let f = ScoringUtils.frequencyScore(match);
-    f = Math.max(f, minWeight);
-    return [s * d * f, s, d, f];
+    const daysAgo = ed ? (new Date().getTime() - ed.getTime()) / (1000 * 60 * 60 * 24) : 90;
+    const occurances = sharedIndex2().linkRawOccurances(match) || 0;
+    return [occurances, daysAgo];
   };
 }

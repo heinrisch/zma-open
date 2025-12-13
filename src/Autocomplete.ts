@@ -31,13 +31,29 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
 
   const startTime = Date.now();
 
-  const completionItems = sharedIndex2().autoCompleteItems()
-
-    .filter((a: AutocompleteItem): boolean => suggestHeader || a.type !== AutocompleteType.HEADER)
-    .map((a): [AutocompleteItem, number[]] => [a, ScoringUtils.scoreAutocompleteParts(text, a.text)])
-    .filter(([, score]) => score[0] >= ScoringUtils.minScore)
-    .sort(([, a], [, b]) => b[0] - a[0])
+  const top50completion: [AutocompleteItem, number[]][] = sharedIndex2().autoCompleteItems()
+    .filter((a: AutocompleteItem): boolean => suggestHeader ? a.type === AutocompleteType.HEADER : a.type !== AutocompleteType.HEADER)
+    .map((a): [AutocompleteItem, number] => [a, ScoringUtils.matchScore(text, a.text)])
+    .filter(([, score]) => score >= ScoringUtils.minScore)
+    .sort(([, a], [, b]) => b - a)
     .slice(0, 50)
+    .map(([a, score]): [AutocompleteItem, number[]] => {
+      const [occurances, daysAgo] = ScoringUtils.occuranceCountAndDaysAgoMentioned(a.text);
+      return [a, [score, occurances, daysAgo]];
+    })
+
+  const maxOccurances = Math.max(...top50completion.map(([, scores]) => scores[1]), 1);
+  const maxDaysAgo = Math.min(Math.max(...top50completion.map(([, scores]) => scores[2]), 1), 14);
+
+  const completionItems: CompletionItem[] = top50completion
+    .map(([a, scores]): [AutocompleteItem, number[]]  => {
+      const occuranceWeight = (scores[1] / maxOccurances) * 0.25 + 0.75;
+      const daysAgoWeight = (1 - (scores[2] / maxDaysAgo)) * 0.25 + 0.75;
+
+      const finalScore = scores[0] * occuranceWeight * daysAgoWeight;
+      return [a, [finalScore, scores[0], occuranceWeight, daysAgoWeight]];
+    })
+    .sort(([, [a,]], [, [b,]]) => b - a)
     .map(([a, score], index): CompletionItem => {
       const insert = shouldHaveBrackets
         ? `${AcData[a.type].prefix}${a.completion}${AcData[a.type].suffix}`
