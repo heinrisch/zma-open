@@ -3,7 +3,7 @@ import * as path from 'path';
 import { Link } from './Link';
 import * as fs from 'fs';
 import * as childProcess from 'child_process';
-import { sharedIndex2 } from './Index2';
+import { sharedIndex2, ZmaFile } from './Index2';
 import { LinkType } from './LinkLocation';
 
 type Entry = [string, Date];
@@ -93,16 +93,14 @@ export const getLastEditedIndexed = (linkName: string): Date | undefined => {
   return lastEditIndex.get(linkName);
 };
 
-export const onSavedFile = (document: vscode.TextDocument) => {
-  if (path.extname(document.fileName) === '.md') {
-    const filePath = document.fileName;
-    const link = Link.fromFilePath(filePath);
-    const linkName = link.linkName();
-
+export const onSavedZmaFile = (zmaFile: ZmaFile) => {
+  const updates = [zmaFile.link.linkName(), ...zmaFile.linkLocations.map(ll => ll.link.linkName())];
+  updates.forEach(linkName => {
     lastEditIndex.set(linkName, new Date());
+  });
 
-    writeLastEditIndexToFile();
-  }
+  writeLastEditIndexToFile();
+
 };
 
 const dateIsValid = (date: Date | null | undefined) => {

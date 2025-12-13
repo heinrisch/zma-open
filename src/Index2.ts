@@ -10,7 +10,7 @@ import { escapeRegExp } from './Util';
 import { readLastEditIndexFromFile } from './LastEditHandler';
 import { readTagIndexFromFile, getTagsForLink, setTagsForLink, removeTagsForLink } from './TagHandler';
 
-class ZmaFile {
+export class ZmaFile {
   constructor(
     public link: Link,
     public content: string,

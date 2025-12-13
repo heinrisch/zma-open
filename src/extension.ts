@@ -4,7 +4,7 @@ import { BacklinkProvider } from './BacklinksExplorer';
 import { activateCommands } from './Commands';
 import { activateKeyboardShortcuts } from './KeyboardShortcuts';
 import { activateListEditing } from './ListEditing';
-import { onSavedFile } from './LastEditHandler';
+import { onSavedZmaFile as updateLastEdit } from './LastEditHandler';
 import { activateCodeFormatter } from './MarkdownFormatter';
 import { activateDefinitionProvider } from './DefinitionProvider';
 import { activateReferenceProvider } from './ReferenceProvider';
@@ -120,13 +120,13 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   });
 
   vscode.workspace.onDidSaveTextDocument(async (document) => {
-    onSavedFile(document);
-
     const fileContent = document.getText();
     const filePath = document.uri.fsPath;
 
     const zmaFile = await processMdFile(fileContent, filePath);
     sharedIndex2().addFile(zmaFile);
+
+    updateLastEdit(zmaFile);
 
     backlinkProvider.refresh();
     hashtagNodeProvider.refresh();
