@@ -9,6 +9,8 @@ import { findAndCreateTasks, Task, TaskState } from './Tasks';
 import { escapeRegExp } from './Util';
 import { readLastEditIndexFromFile } from './LastEditHandler';
 import { readTagIndexFromFile, getTagsForLink, setTagsForLink, removeTagsForLink } from './TagHandler';
+import { link } from 'fs';
+import { LinkShortener, sharedLinkShortener } from './HrefShortener';
 
 export class ZmaFile {
   constructor(
@@ -25,8 +27,6 @@ export class ZmaFile {
 export class Index2 {
   public isCompleted: boolean = false;
   private files: Map<string, ZmaFile> = new Map();
-  public workspaceFilePath: string = '';
-  public pagesFilePath: string = '';
 
   private _allLinkLocations: Array<LinkLocation> | null = null;
 
@@ -158,6 +158,26 @@ export class Index2 {
   }
 }
 
+export function workspaceFolderPath(): string | undefined {
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders || workspaceFolders.length === 0) {
+    return undefined;
+  }
+
+  const workspaceFolder = workspaceFolders[0];
+
+  return workspaceFolder.uri.fsPath;
+}
+
+export function pagesFolderPath(): string | undefined {
+  const wsPath = workspaceFolderPath();
+  if (!wsPath) {
+    return undefined;
+  }
+  return path.join(wsPath, 'pages');
+}
+
+
 let globalIndex2: Index2 = new Index2();
 
 export const isIndexReady = () => {
@@ -176,41 +196,11 @@ export async function reindex2() {
 
   const index = new Index2();
 
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders) {
-    await vscode.window.showErrorMessage('No workspace selected');
-    return;
-  }
-
-  if (workspaceFolders.length > 1) {
-    await vscode.window.showErrorMessage('More than one workspace selected');
-    return;
-  }
-
-  const workspaceFolder = workspaceFolders[0];
-
-  index.workspaceFilePath = workspaceFolder.uri.fsPath;
+  const pagesFolderUri = vscode.Uri.file(pagesFolderPath()!);
 
   stopwatch.lap('Initialized');
 
-
-  const folderPaths = (await vscode.workspace.fs.readDirectory(workspaceFolder.uri))
-    .filter(([subfolder]) => ['pages'].includes(subfolder))
-    .map(([subfolder]) => {
-      const filePath = vscode.Uri.joinPath(workspaceFolder.uri, subfolder).fsPath;
-      return {
-        subfolder,
-        filePath
-      };
-    });
-
-  for (const { subfolder, filePath } of folderPaths) {
-    if (subfolder === 'pages') {
-      index.pagesFilePath = filePath;
-    }
-  }
-
-  await traverseFolder(vscode.Uri.file(index.pagesFilePath!), index);
+  await traverseFolder(pagesFolderUri, index);
   stopwatch.lap('Traversed pages');
 
   readLastEditIndexFromFile();
@@ -218,8 +208,6 @@ export async function reindex2() {
 
   readTagIndexFromFile();
   stopwatch.lap('Reindexed tags');
-
-  void vscode.commands.executeCommand('zma.refreshexplorers');
 
   index.isCompleted = true;
   globalIndex2 = index;
@@ -285,6 +273,8 @@ async function traverseFolder(folderPath: vscode.Uri, index: Index2): Promise<vo
 
 async function preprocessMdFile(fileContent: string, filePath: string): Promise<string> {
   let editedFileContent = fileContent;
+
+  editedFileContent = sharedLinkShortener().shortenContent(editedFileContent);
 
   if (editedFileContent !== fileContent) {
     await vscode.workspace.fs.writeFile(vscode.Uri.file(filePath), new TextEncoder().encode(editedFileContent));

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as cp from 'child_process';
-import { sharedIndex2 } from './Index2';
+import { sharedIndex2, workspaceFolderPath } from './Index2';
 
 interface CliAction {
     name: string;
@@ -71,7 +71,7 @@ export function activateCliActions(context: vscode.ExtensionContext) {
 }
 
 export async function runCliAction(cliAction: CliAction, text: string): Promise<string> {
-    const folder = sharedIndex2().workspaceFilePath;
+    const folder = workspaceFolderPath() || '';
     const tempDir = path.join(folder, ".cli-action-temp");
     if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });

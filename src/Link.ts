@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import { sharedIndex2 } from './Index2';
+import { sharedIndex2, pagesFolderPath, workspaceFolderPath } from './Index2';
 
 const _rawToFilePath: Map<string, string> = new Map();
 
@@ -28,7 +28,7 @@ export class Link {
   }
 
   public filePath(): string {
-    return _rawToFilePath.get(this.raw) || path.join(sharedIndex2().pagesFilePath, this.fileName());
+    return _rawToFilePath.get(this.raw) || path.join(pagesFolderPath() || '', this.fileName());
   }
 
   public isDate(): boolean {
@@ -59,7 +59,7 @@ export class Link {
 
   public relativeFilePath(): string {
     const filePathParts = path.parse(this.filePath());
-    const filePath = filePathParts.dir.replace(sharedIndex2().workspaceFilePath, '');
+    const filePath = filePathParts.dir.replace(workspaceFolderPath() || '', '');
     const fileName = filePathParts.base;
 
     return path.join(filePath, fileName);
