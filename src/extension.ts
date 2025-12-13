@@ -21,6 +21,7 @@ import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
 import { activateInsertDocument } from './InsertDocument';
 import { activateAutoTagging } from './AutoTagging';
 import { startMcpServer } from './McpServer';
+import { activateShortLinkProvider } from './ShortLinkProvider';
 
 
 let hasActivatedFeatures = false;
@@ -84,6 +85,7 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   activateAutoTagging(context);
   activateInsertDocument(context);
   registerMarkdownInlineUrlFold(context);
+  activateShortLinkProvider(context);
 
   startMcpServer(context);
 
