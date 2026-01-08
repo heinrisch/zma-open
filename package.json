@@ -1,21 +1,16 @@
 {
   "name": "zma",
-  "publisher": "heinrisch",
   "displayName": "zma",
   "description": "Next level notes",
-  "version": "1.2.6",
+  "version": "0.6.14",
   "engines": {
-    "vscode": "^1.105.0"
+    "vscode": "^1.96.4"
   },
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "onLanguage:markdown",
-    "onCommand:zma.init",
-    "onCommand:zma.inlineFold.toggleMarkdownUrls"
-  ],
-  "main": "./out/main.js",
+  "activationEvents": [],
+  "main": "./out/extension.js",
   "contributes": {
     "configuration": [
       {
@@ -47,6 +42,21 @@
             "default": 2,
             "minimum": 0,
             "description": "Width of the bullet thread in pixels"
+          },
+          "zma.llm.anthropic.apiKey": {
+            "type": "string",
+            "default": "",
+            "description": "Anthropic API Key"
+          },
+          "zma.llm.openai.apiKey": {
+            "type": "string",
+            "default": "",
+            "description": "OpenAI API Key"
+          },
+          "zma.llm.google.apiKey": {
+            "type": "string",
+            "default": "",
+            "description": "Google API Key"
           }
         }
       }
@@ -85,143 +95,95 @@
         "title": "ZMA: Format All Files"
       },
       {
-        "command": "zma.git.commitandpush",
-        "title": "ZMA: Commit and Push"
+        "command": "zma.fullsearch",
+        "title": "ZMA: Full Search"
       },
       {
-        "command": "zma.git.removeemptyfiles",
-        "title": "ZMA: Remove Empty Files"
+        "command": "zma.supersearch",
+        "title": "ZMA: Super Search (Multiple Terms)"
       },
       {
         "command": "zma.remake.lastedit",
         "title": "ZMA: Remake LastEdit Index"
       },
       {
-        "command": "zma.taskLink.snooze1Day",
-        "title": "+S"
-      },
-      {
-        "command": "zma.taskLink.resetsnooze",
-        "title": "rS"
-      },
-      {
-        "command": "zma.taskLink.plusprio",
-        "title": "+P"
-      },
-      {
-        "command": "zma.taskLink.minusprio",
-        "title": "-P"
-      },
-      {
         "command": "zma.runCliAction",
         "title": "ZMA: Run Cli Action"
       },
       {
-        "command": "zma.runLlmAction",
-        "title": "ZMA: Run LLM Action"
+        "command": "zma.semanticsearch",
+        "title": "ZMA: Semantic Search"
       },
       {
-        "command": "zma.inlineFold.toggleMarkdownUrls",
-        "title": "ZMA: Toggle Inline URL Folding"
-      },
-      {
-        "command": "zma.cleanSelectedText",
-        "title": "ZMA: Clean Selected Text"
+        "command": "zma.ask",
+        "title": "ZMA: Ask"
       },
       {
         "command": "zma.insertDocument",
         "title": "ZMA: Insert Document"
       },
       {
-        "command": "zma.addTagsToCurrentLink",
-        "title": "ZMA: Add Tags to Current Link"
-      },
-      {
-        "command": "zma.autoTagLink",
-        "title": "ZMA: Auto Tag Link (LLM)"
-      },
-      {
-        "command": "zma.autoTagNextUntagged",
-        "title": "ZMA: Auto Tag Next Untagged Link"
+        "command": "zma.insertTags",
+        "title": "ZMA: Insert Tags"
       },
       {
         "command": "zma.mcp.start",
         "title": "ZMA: Start MCP Server"
       },
       {
-        "command": "zma.mcp.stop",
-        "title": "ZMA: Stop MCP Server"
+        "command": "zma.shortLink.copy",
+        "title": "ZMA: Copy Short Link"
       }
     ],
-    "menus": {
-      "view/item/context": [
-        {
-          "command": "zma.taskLink.snooze1Day",
-          "when": "view == tasks && viewItem == Tasklink",
-          "group": "inline"
-        },
-        {
-          "command": "zma.taskLink.resetsnooze",
-          "when": "view == tasks && viewItem == Tasklink",
-          "group": "inline"
-        },
-        {
-          "command": "zma.taskLink.plusprio",
-          "when": "view == tasks && viewItem == Tasklink",
-          "group": "inline"
-        },
-        {
-          "command": "zma.taskLink.minusprio",
-          "when": "view == tasks && viewItem == Tasklink",
-          "group": "inline"
-        }
-      ]
-    },
+    "markdown.previewStyles": [
+      "./out/markdown-style.css"
+    ],
+    "markdown.markdownItPlugins": true,
     "keybindings": [
       {
-        "command": "zma.commandsonEnterKey",
+        "command": "markdown.extension.onEnterKey",
         "key": "enter",
-        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && (!suggestWidgetVisible || config.editor.acceptSuggestionOnEnter == 'off') && !editorHasMultipleSelections && vim.mode != 'Normal' && vim.mode != 'Visual' && vim.mode != 'VisualBlock' && vim.mode != 'VisualLine' && vim.mode != 'SearchInProgressMode' && vim.mode != 'CommandlineInProgress' && vim.mode != 'Replace' && vim.mode != 'EasyMotionMode' && vim.mode != 'EasyMotionInputMode' && vim.mode != 'SurroundInputMode' && !zma.commandseditor.cursor.inFencedCodeBlock && !zma.commandseditor.cursor.inMathEnv"
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && (!suggestWidgetVisible || config.editor.acceptSuggestionOnEnter == 'off') && !editorHasMultipleSelections && vim.mode != 'Normal' && vim.mode != 'Visual' && vim.mode != 'VisualBlock' && vim.mode != 'VisualLine' && vim.mode != 'SearchInProgressMode' && vim.mode != 'CommandlineInProgress' && vim.mode != 'Replace' && vim.mode != 'EasyMotionMode' && vim.mode != 'EasyMotionInputMode' && vim.mode != 'SurroundInputMode' && !markdown.extension.editor.cursor.inFencedCodeBlock && !markdown.extension.editor.cursor.inMathEnv"
       },
       {
-        "command": "zma.commandsonShiftEnterKey",
+        "command": "markdown.extension.onShiftEnterKey",
         "key": "shift+enter",
-        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && (!suggestWidgetVisible || config.editor.acceptSuggestionOnEnter == 'off') && !editorHasMultipleSelections && !zma.commandseditor.cursor.inFencedCodeBlock && !zma.commandseditor.cursor.inMathEnv"
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && (!suggestWidgetVisible || config.editor.acceptSuggestionOnEnter == 'off') && !editorHasMultipleSelections && !markdown.extension.editor.cursor.inFencedCodeBlock && !markdown.extension.editor.cursor.inMathEnv"
       },
       {
-        "command": "zma.commandsonTabKey",
+        "command": "markdown.extension.onTabKey",
         "key": "tab",
         "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible && !inlineSuggestionVisible && !editorHasMultipleSelections && !editorTabMovesFocus && !inSnippetMode && !hasSnippetCompletions && !hasOtherSuggestions"
       },
       {
-        "command": "zma.commandsonShiftTabKey",
+        "command": "markdown.extension.onShiftTabKey",
         "key": "shift+tab",
-        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible && !editorHasMultipleSelections && !editorTabMovesFocus && !inSnippetMode && !hasSnippetCompletions && !hasOtherSuggestions && zma.commandseditor.cursor.inList && !zma.commandseditor.cursor.inFencedCodeBlock && !zma.commandseditor.cursor.inMathEnv"
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible && !editorHasMultipleSelections && !editorTabMovesFocus && !inSnippetMode && !hasSnippetCompletions && !hasOtherSuggestions && markdown.extension.editor.cursor.inList && !markdown.extension.editor.cursor.inFencedCodeBlock && !markdown.extension.editor.cursor.inMathEnv"
       },
       {
-        "command": "zma.commandsonBackspaceKey",
+        "command": "markdown.extension.onBackspaceKey",
         "key": "backspace",
-        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible && !editorHasMultipleSelections && vim.mode != 'Normal' && vim.mode != 'Visual' && vim.mode != 'VisualBlock' && vim.mode != 'VisualLine' && vim.mode != 'SearchInProgressMode' && vim.mode != 'CommandlineInProgress' && vim.mode != 'Replace' && vim.mode != 'EasyMotionMode' && vim.mode != 'EasyMotionInputMode' && vim.mode != 'SurroundInputMode' && !zma.commandseditor.cursor.inFencedCodeBlock && !zma.commandseditor.cursor.inMathEnv"
+        "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible && !editorHasMultipleSelections && vim.mode != 'Normal' && vim.mode != 'Visual' && vim.mode != 'VisualBlock' && vim.mode != 'VisualLine' && vim.mode != 'SearchInProgressMode' && vim.mode != 'CommandlineInProgress' && vim.mode != 'Replace' && vim.mode != 'EasyMotionMode' && vim.mode != 'EasyMotionInputMode' && vim.mode != 'SurroundInputMode' && !markdown.extension.editor.cursor.inFencedCodeBlock && !markdown.extension.editor.cursor.inMathEnv"
       },
       {
-        "command": "zma.commandsonIndentLines",
+        "command": "markdown.extension.onIndentLines",
         "key": "ctrl+]",
         "mac": "cmd+]",
         "when": "editorTextFocus && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible"
       },
       {
-        "command": "zma.commandsonOutdentLines",
+        "command": "markdown.extension.onOutdentLines",
         "key": "ctrl+[",
         "mac": "cmd+[",
         "when": "editorTextFocus && editorLangId =~ /^markdown$|^rmd$|^quarto$/ && !suggestWidgetVisible"
       },
       {
-        "command": "zma.commandsediting.toggleStrikethrough",
+        "command": "markdown.extension.editing.toggleStrikethrough",
         "key": "alt+s",
         "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/"
       },
       {
-        "command": "zma.commandsediting.toggleStrong",
+        "command": "markdown.extension.editing.toggleStrong",
         "key": "alt+b",
         "when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/"
       },
@@ -234,26 +196,6 @@
         "command": "zma.quickOpenLink",
         "key": "ctrl+k p",
         "mac": "cmd+k p"
-      },
-      {
-        "command": "zma.insertDocument",
-        "key": "ctrl+k i",
-        "mac": "cmd+k i"
-      },
-      {
-        "command": "zma.addTagsToCurrentLink",
-        "key": "ctrl+k t",
-        "mac": "cmd+k t"
-      },
-      {
-        "command": "zma.autoTagLink",
-        "key": "ctrl+k a",
-        "mac": "cmd+k a"
-      },
-      {
-        "command": "zma.autoTagNextUntagged",
-        "key": "ctrl+k n",
-        "mac": "cmd+k n"
       }
     ],
     "viewsContainers": {
@@ -273,9 +215,9 @@
           "contextualTitle": "Page Backlinks"
         },
         {
-          "id": "tasks",
-          "name": "Tasks",
-          "contextualTitle": "Page Tasks"
+          "id": "zma.taskManagerView",
+          "name": "Task Manager",
+          "type": "webview"
         },
         {
           "id": "pageHashtags",
@@ -288,11 +230,19 @@
     "definitionProvider": "true",
     "referencesProvider": "true"
   },
+  "files": [
+    "out",
+    "media",
+    "src/JsonExport.schema.json",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "npm run watch-ts",
     "watch-ts": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
+    "tw": "npx tailwindcss -i ./src/markdown-style.css -o ./out/markdown-style.css",
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
     "vscode:prepublish": "npm run esbuild-base -- --minify",
@@ -302,24 +252,15 @@
     "test-compile": "tsc -p ./"
   },
   "devDependencies": {
-    "@cfworker/json-schema": "^4.1.1",
-    "@types/node": "24.8.*",
-    "@types/vscode": "^1.105.0",
-    "@typescript-eslint/eslint-plugin": "^8.46.1",
-    "@typescript-eslint/parser": "^8.46.1",
-    "autoprefixer": "^10.4.21",
-    "css-loader": "^7.1.2",
-    "esbuild": "^0.25.11",
-    "eslint": "^9.38.0",
-    "eslint-plugin-promise": "^7.2.1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/heinrisch/zma-open"
-  },
-  "license": "MIT",
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.22.0",
-    "zod": "^3.25.76"
+    "@types/node": "22.14.*",
+    "@types/vscode": "^1.96.4",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "autoprefixer": "^10.4.17",
+    "css-loader": "^6.9.1",
+    "esbuild": "^0.25.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "tailwindcss": "^3.4.1"
   }
 }

@@ -22,6 +22,7 @@ import { activateInsertDocument } from './InsertDocument';
 import { activateAutoTagging } from './AutoTagging';
 import { startMcpServer } from './McpServer';
 import { activateShortLinkProvider } from './ShortLinkProvider';
+import { TaskManagerWebViewProvider } from './TaskManagerWebView';
 
 
 let hasActivatedFeatures = false;
@@ -95,12 +96,22 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   const hashtagNodeProvider = new HashTagProvider();
   vscode.window.registerTreeDataProvider('pageHashtags', hashtagNodeProvider);
 
-  const taskProvider = activateTasks();
+  // Register Task Manager WebView
+  const taskManagerProvider = new TaskManagerWebViewProvider(context.extensionUri);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      TaskManagerWebViewProvider.viewType,
+      taskManagerProvider
+    )
+  );
+
+  // const taskProvider = activateTasks();
 
   activateCommands(context, () => {
     backlinkProvider.refresh();
     hashtagNodeProvider.refresh();
-    taskProvider.refresh();
+    // taskProvider.refresh();
+    taskManagerProvider.refresh();
   });
 
   context.subscriptions.push(
@@ -132,7 +143,8 @@ async function activateFeatures(context: vscode.ExtensionContext) {
 
     backlinkProvider.refresh();
     hashtagNodeProvider.refresh();
-    taskProvider.refresh();
+    // taskProvider.refresh();
+    taskManagerProvider.refresh();
   });
 }
 
