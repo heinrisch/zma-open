@@ -151,6 +151,10 @@
       {
         "command": "zma.mcp.stop",
         "title": "ZMA: Stop MCP Server"
+      },
+      {
+        "command": "zma.openTaskView",
+        "title": "ZMA: Open Task View"
       }
     ],
     "menus": {
@@ -273,9 +277,10 @@
           "contextualTitle": "Page Backlinks"
         },
         {
-          "id": "tasks",
+          "id": "taskManagementView",
           "name": "Tasks",
-          "contextualTitle": "Page Tasks"
+          "type": "webview",
+          "contextualTitle": "Task Management"
         },
         {
           "id": "pageHashtags",
