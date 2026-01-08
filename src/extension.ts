@@ -95,7 +95,7 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   const hashtagNodeProvider = new HashTagProvider();
   vscode.window.registerTreeDataProvider('pageHashtags', hashtagNodeProvider);
 
-  const taskProvider = activateTasks();
+  const taskProvider = activateTasks(context);
 
   activateCommands(context, () => {
     backlinkProvider.refresh();
