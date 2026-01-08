@@ -3,44 +3,16 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { Link } from './Link';
 import { RegexPatterns } from './RegexPatterns';
-import { TaskLink, TaskProvider } from './TaskExplorer';
+import { TaskWebviewProvider } from './TaskWebview';
 import { regexMatches, sharedIndex2 } from './Index2';
 import { Location } from './LinkLocation';
 
-export const activateTasks = (): TaskProvider => {
-  const tasksNodeProvider = new TaskProvider();
-  vscode.window.registerTreeDataProvider('tasks', tasksNodeProvider);
-
-  let timeout: NodeJS.Timeout | null = null;
-  const refresh = () => {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-    timeout = setTimeout(() => tasksNodeProvider.refresh(), 500);
-  };
-
-
-  vscode.commands.registerCommand('zma.taskLink.snooze1Day', (task: TaskLink) => {
-    snoozeTask(task.task.id, 1);
-    refresh();
-  });
-
-  vscode.commands.registerCommand('zma.taskLink.resetsnooze', (task: TaskLink) => {
-    resetSnooze(task.task.id);
-    refresh();
-  });
-
-  vscode.commands.registerCommand('zma.taskLink.plusprio', (task: TaskLink) => {
-    prioTask(task.task.id, 1);
-    refresh();
-  });
-
-  vscode.commands.registerCommand('zma.taskLink.minusprio', (task: TaskLink) => {
-    prioTask(task.task.id, -1);
-    refresh();
-  });
-
-  return tasksNodeProvider;
+export const activateTasks = (context: vscode.ExtensionContext): TaskWebviewProvider => {
+  const provider = new TaskWebviewProvider(context.extensionUri);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider('tasks', provider)
+  );
+  return provider;
 };
 
 export enum TaskState {
@@ -60,7 +32,17 @@ export class Task {
     this.state = this.parseState();
 
     const groupPrefix = this.getGroup() ? `/${this.getGroup()}` : '';
-    this.taskWithoutState = this.full.trim().replace(`- ${this.state}${groupPrefix} `, '').trim();
+    // Fix: Handle cases where groupPrefix is empty correctly in replacement
+    const stateStr = `- ${this.state}`;
+    const stateWithGroup = this.getGroup() ? `${stateStr}/${this.getGroup()}` : stateStr;
+    
+    // Fallback if replace doesn't work as expected (simple string manipulation)
+    if (this.full.startsWith(stateWithGroup)) {
+        this.taskWithoutState = this.full.substring(stateWithGroup.length).trim();
+    } else {
+        // Try without group if regex parsed it but string replacement failed (edge case)
+        this.taskWithoutState = this.full.replace(stateStr, '').trim();
+    }
 
     this.id = this.taskWithoutState.replace(new RegExp('[^a-zA-Z0-9]', 'g'), '');
   }
@@ -180,7 +162,7 @@ class TaskData {
   }
 }
 
-const resetSnooze = (taskId: string) => {
+export const resetSnooze = (taskId: string) => {
   taskDatas = [];
   getTaskData(taskId);
 
@@ -208,7 +190,7 @@ const setDoneNow = (taskId: string) => {
   saveTaskData();
 };
 
-const snoozeTask = (taskId: string, days: number) => {
+export const snoozeTask = (taskId: string, days: number) => {
   // Reload tasks
   taskDatas = [];
   getTaskData(taskId);
@@ -228,16 +210,47 @@ const snoozeTask = (taskId: string, days: number) => {
   saveTaskData();
 };
 
-const prioTask = (taskId: string, value: number) => {
+export const prioTask = (taskId: string, value: number) => {
   // Reload tasks
   taskDatas = [];
   getTaskData(taskId);
   taskDatas = taskDatas.map((td) => {
     if (td.taskId === taskId) {
-      td.prio += value;
+      if (value === 0) {
+        td.prio = 0;
+      } else {
+        td.prio += value;
+      }
     }
     return td;
   });
 
   saveTaskData();
+};
+
+export const completeTask = async (task: Task) => {
+    const document = await vscode.workspace.openTextDocument(vscode.Uri.file(task.location.link.filePath()));
+    const edit = new vscode.WorkspaceEdit();
+    const line = document.lineAt(task.location.row);
+    const newText = line.text.replace('TODO', 'DONE');
+    edit.replace(document.uri, line.range, newText);
+    await vscode.workspace.applyEdit(edit);
+};
+
+export const changeCategory = async (task: Task, newCategory: string) => {
+    const document = await vscode.workspace.openTextDocument(vscode.Uri.file(task.location.link.filePath()));
+    const edit = new vscode.WorkspaceEdit();
+    const line = document.lineAt(task.location.row);
+    let newText = line.text;
+    
+    const currentGroup = task.parseGroup();
+    if (currentGroup) {
+        newText = newText.replace(`/${currentGroup}`, `/${newCategory}`);
+    } else {
+        // Insert category after TODO/DOING
+        newText = newText.replace(/- (TODO|DOING)/, `- $1/${newCategory}`);
+    }
+    
+    edit.replace(document.uri, line.range, newText);
+    await vscode.workspace.applyEdit(edit);
 };
