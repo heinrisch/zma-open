@@ -90,21 +90,34 @@ export class Task {
   }
 }
 
-export const findAndCreateTasks = (sourceLink: Link, fileContent: string): Task[] => {
+let tasks: Task[] = [];
+
+export const sharedTasks = () => {
+  sharedIndex2();
+  return tasks;
+};
+
+export const resetTasks = () => {
+  tasks = [];
+};
+
+export const findAndCreateTasks = (sourceLink: Link, fileContent: string) => {
   const taskMatches = regexMatches(RegexPatterns.RE_TASK(), fileContent);
-  return taskMatches.map(match => {
+  taskMatches.forEach(match => {
     const full = match.fullMatch;
     const location = new Location(sourceLink, match.row, match.column);
 
     const task = new Task(full, location);
+
+    if (!tasks.find((t: Task) => t.full === task.full)) {
+      tasks.push(task);
+    }
 
     const td = getTaskData(task.id);
     const differenceInMilliseconds = Math.abs(td.getCreatedAt().getTime() - td.getDoneAt().getTime());
     if(task.state === TaskState.Done && differenceInMilliseconds < 1000*10) {
       setDoneNow(task.id);
     }
-
-    return task;
   });
 };
 
