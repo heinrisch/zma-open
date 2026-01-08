@@ -9,6 +9,7 @@ import { reindex2, sharedIndex2 } from './Index2';
 import { getTagsForLink, setTagsForLink, removeTagsForLink, getAllTags } from './TagHandler';
 import { RegexPatterns } from './RegexPatterns';
 import { startMcpServerManual, stopMcpServer } from './McpServer';
+import { TaskWebviewProvider } from './TaskWebview';
 
 export const activateCommands = (context: vscode.ExtensionContext, resetProviders: () => void) => {
   context.subscriptions.push(
@@ -213,6 +214,14 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
   context.subscriptions.push(
     vscode.commands.registerCommand('zma.mcp.stop', async () => {
       await stopMcpServer();
+    })
+  );
+
+  // Task Webview Command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('zma.openTaskView', async () => {
+      // Focus the view
+      await vscode.commands.executeCommand(`${TaskWebviewProvider.viewType}.focus`);
     })
   );
 
