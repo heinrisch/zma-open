@@ -10,7 +10,7 @@ import { Location } from './LinkLocation';
 export const activateTasks = (context: vscode.ExtensionContext): TaskWebviewProvider => {
   const provider = new TaskWebviewProvider(context.extensionUri);
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider('tasks', provider)
+    vscode.window.registerWebviewViewProvider(TaskWebviewProvider.viewType, provider)
   );
   return provider;
 };
