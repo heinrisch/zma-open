@@ -339,10 +339,8 @@ export class TaskManagementPanel {
 
                 function toggleAllGroups() {
                     if (collapsedGroups.size === allGroupNames.length) {
-                        // All collapsed, expand all
                         collapsedGroups.clear();
                     } else {
-                        // Some or none collapsed, collapse all
                         allGroupNames.forEach(name => collapsedGroups.add(name));
                     }
                     render();
@@ -385,15 +383,15 @@ export class TaskManagementPanel {
                         const isCollapsed = collapsedGroups.has(groupName);
                         const count = groups[groupName].length;
                         
-                        html += \`
+                        html += `
                             <div class="group-section">
-                                <div class="group-header sticky top-0 bg-[var(--vscode-editor-background)] py-2 mb-2 border-b border-[var(--vscode-focusBorder)] flex items-center gap-2 z-10 \${isCollapsed ? 'collapsed' : ''}" onclick="toggleGroup('\${groupName}')">
+                                <div class="group-header sticky top-0 bg-[var(--vscode-editor-background)] py-2 mb-2 border-b border-[var(--vscode-focusBorder)] flex items-center gap-2 z-10 ${isCollapsed ? 'collapsed' : ''}" onclick="toggleGroup('${groupName}')">
                                     <svg class="chevron w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                                    <span class="font-bold text-lg">\${groupName}</span>
-                                    <span class="text-xs opacity-50 font-normal">(\${count})</span>
+                                    <span class="font-bold text-lg">${groupName}</span>
+                                    <span class="text-xs opacity-50 font-normal">(${count})</span>
                                 </div>
                                 <div class="group-content grid gap-1">
-                        \`;
+                        `;
                         
                         if (!isCollapsed) {
                             groups[groupName].forEach(task => {
@@ -403,54 +401,54 @@ export class TaskManagementPanel {
                                 const isLowPrio = task.prio < 0;
                                 const prioClass = isHighPrio ? 'prio-high' : (isMedPrio ? 'prio-med' : (isLowPrio ? 'prio-low' : 'prio-neutral'));
                                 
-                                const snoozeInfo = task.snoozeDate ? \`<span class="text-xs text-purple-400 ml-2 border border-purple-400 rounded px-1">Until \${task.snoozeDate}</span>\` : '';
+                                const snoozeInfo = task.snoozeDate ? `<span class="text-xs text-purple-400 ml-2 border border-purple-400 rounded px-1">Until ${task.snoozeDate}</span>` : '';
 
-                                html += \`
-                                    <div class="task-row grid grid-cols-[1fr_auto] gap-4 p-2 items-center rounded group \${prioClass} \${isCompleted ? 'completed-task' : ''}" data-id="\${task.id}">
-                                        <div class="flex flex-col gap-1 min-w-0 cursor-pointer" onclick="openTask('\${task.id}')">
+                                html += `
+                                    <div class="task-row grid grid-cols-[1fr_auto] gap-4 p-2 items-center rounded group ${prioClass} ${isCompleted ? 'completed-task' : ''}" data-id="${task.id}">
+                                        <div class="flex flex-col gap-1 min-w-0 cursor-pointer" onclick="openTask('${task.id}')">
                                             <div class="flex items-center gap-2">
-                                                <span class="font-mono text-xs opacity-50 select-none" title="Priority: \${task.prio.toFixed(1)}">[\${task.prio.toFixed(0)}]</span>
-                                                <span class="truncate hover:underline font-medium">\${escapeHtml(task.taskWithoutState)}</span>
-                                                \${snoozeInfo}
+                                                <span class="font-mono text-xs opacity-50 select-none" title="Priority: ${task.prio.toFixed(1)}">[${task.prio.toFixed(0)}]</span>
+                                                <span class="truncate hover:underline font-medium">${escapeHtml(task.taskWithoutState)}</span>
+                                                ${snoozeInfo}
                                             </div>
-                                            <div class="text-xs opacity-50 truncate pl-8">\${task.location.filePath.split(/[\\\\/]/).pop()}</div>
+                                            <div class="text-xs opacity-50 truncate pl-8">${task.location.filePath.split(/[\\/]/).pop()}</div>
                                         </div>
                                         
                                         <div class="action-group flex items-center gap-2">
-                                            <select onchange="changeCategory('\${task.id}', this.value)" class="text-xs p-1 rounded max-w-[100px] opacity-90 hover:opacity-100" title="Change Category" \${isCompleted ? 'disabled' : ''}>
+                                            <select onchange="changeCategory('${task.id}', this.value)" class="text-xs p-1 rounded max-w-[100px] opacity-90 hover:opacity-100" title="Change Category" ${isCompleted ? 'disabled' : ''}>
                                                 <option value="" disabled selected>Move</option>
-                                                \${allCategories.map(c => \`<option value="\${c}">\${c}</option>\`).join('')}
+                                                ${allCategories.map(c => `<option value="${c}">${c}</option>`).join('')}
                                                 <option value="Inbox">Inbox</option>
                                             </select>
 
                                             <div class="flex items-center bg-[var(--vscode-textBlockQuote-background)] rounded overflow-hidden border border-[var(--vscode-panel-border)]">
-                                                <button class="btn-icon text-[10px] text-blue-400 hover:text-blue-300" onclick="changePrio('\${task.id}', -5)" title="-5 Prio" \${isCompleted ? 'disabled' : ''}>--</button>
-                                                <button class="btn-icon text-[10px] text-blue-400 hover:text-blue-300" onclick="changePrio('\${task.id}', -1)" title="-1 Prio" \${isCompleted ? 'disabled' : ''}>-</button>
-                                                <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="setPrio('\${task.id}', 0)" title="Reset Prio" \${isCompleted ? 'disabled' : ''}>0</button>
-                                                <button class="btn-icon text-[10px] text-red-400 hover:text-red-300" onclick="changePrio('\${task.id}', 1)" title="+1 Prio" \${isCompleted ? 'disabled' : ''}>+</button>
-                                                <button class="btn-icon text-[10px] text-red-400 hover:text-red-300" onclick="changePrio('\${task.id}', 5)" title="+5 Prio" \${isCompleted ? 'disabled' : ''}>++</button>
+                                                <button class="btn-icon text-[10px] text-blue-400 hover:text-blue-300" onclick="changePrio('${task.id}', -5)" title="-5 Prio" ${isCompleted ? 'disabled' : ''}>--</button>
+                                                <button class="btn-icon text-[10px] text-blue-400 hover:text-blue-300" onclick="changePrio('${task.id}', -1)" title="-1 Prio" ${isCompleted ? 'disabled' : ''}>-</button>
+                                                <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="setPrio('${task.id}', 0)" title="Reset Prio" ${isCompleted ? 'disabled' : ''}>0</button>
+                                                <button class="btn-icon text-[10px] text-red-400 hover:text-red-300" onclick="changePrio('${task.id}', 1)" title="+1 Prio" ${isCompleted ? 'disabled' : ''}>+</button>
+                                                <button class="btn-icon text-[10px] text-red-400 hover:text-red-300" onclick="changePrio('${task.id}', 5)" title="+5 Prio" ${isCompleted ? 'disabled' : ''}>++</button>
                                             </div>
 
                                             <div class="flex items-center bg-[var(--vscode-textBlockQuote-background)] rounded overflow-hidden border border-[var(--vscode-panel-border)] ml-1">
-                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 1)" title="1 Day" \${isCompleted ? 'disabled' : ''}>1d</button>
-                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 5)" title="5 Days" \${isCompleted ? 'disabled' : ''}>5d</button>
-                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 7)" title="1 Week" \${isComplapsed ? 'disabled' : ''}>7d</button>
-                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 30)" title="1 Month" \${isCompleted ? 'disabled' : ''}>30d</button>
-                                                <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="snooze('\${task.id}', 0)" title="Reset" \${isCompleted ? 'disabled' : ''}>R</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('${task.id}', 1)" title="1 Day" ${isCompleted ? 'disabled' : ''}>1d</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('${task.id}', 5)" title="5 Days" ${isCompleted ? 'disabled' : ''}>5d</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('${task.id}', 7)" title="1 Week" ${isCompleted ? 'disabled' : ''}>7d</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('${task.id}', 30)" title="1 Month" ${isCompleted ? 'disabled' : ''}>30d</button>
+                                                <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="snooze('${task.id}', 0)" title="Reset" ${isCompleted ? 'disabled' : ''}>R</button>
                                             </div>
 
-                                            <button class="\${isCompleted ? 'bg-gray-500 hover:bg-gray-600' : 'bg-green-600 hover:bg-green-500'} text-white px-3 py-1 rounded text-xs font-bold shadow-sm ml-2 w-8" 
-                                                onclick="\${isCompleted ? \`undoComplete('\${task.id}')\` : \`complete('\${task.id}')\`}"
-                                                title="\${isCompleted ? 'Undo Complete' : 'Complete Task'}">
-                                                \${isCompleted ? '↩' : '✓'}
+                                            <button class="${isCompleted ? 'bg-gray-500 hover:bg-gray-600' : 'bg-green-600 hover:bg-green-500'} text-white px-3 py-1 rounded text-xs font-bold shadow-sm ml-2 w-8" 
+                                                onclick="${isCompleted ? `undoComplete('${task.id}')` : `complete('${task.id}')`}"
+                                                title="${isCompleted ? 'Undo Complete' : 'Complete Task'}">
+                                                ${isCompleted ? '↩' : '✓'}
                                             </button>
                                         </div>
                                     </div>
-                                \`;
+                                `;
                             });
                         }
                         
-                        html += \`</div></div>\`;
+                        html += `</div></div>`;
                     });
 
                     container.innerHTML = html;
