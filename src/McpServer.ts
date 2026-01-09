@@ -135,7 +135,7 @@ Your goal is to help users find, understand, and synthesize information from the
         {
             description: "Search for notes by content, title, or tags",
             inputSchema: {
-                query: z.string().describe("The search query")
+                query: z.string()
             }
         },
         async ({ query }) => {
@@ -175,9 +175,9 @@ Your goal is to help users find, understand, and synthesize information from the
             {
                 description: "Search for notes using semantic embeddings based on link contexts. Results are ordered by relevance.",
                 inputSchema: {
-                    query: z.string().describe("The search query"),
-                    limit: z.number().optional().describe("Max number of results (default 50)"),
-                    offset: z.number().optional().describe("Offset for pagination (default 0)")
+                    query: z.string(),
+                    limit: z.number().optional(),
+                    offset: z.number().optional()
                 }
             },
             async ({ query, limit, offset }: { query: string; limit?: number; offset?: number }) => {
@@ -206,7 +206,7 @@ Your goal is to help users find, understand, and synthesize information from the
         {
             description: "Read the content of a note by its name (link name)",
             inputSchema: {
-                name: z.string().describe("The name of the note to read")
+                name: z.string()
             }
         },
         async ({ name }) => {
@@ -252,7 +252,7 @@ Your goal is to help users find, understand, and synthesize information from the
         {
             description: "Get tasks, optionally filtered by status (TODO, DOING, DONE)",
             inputSchema: {
-                status: z.enum(["TODO", "DOING", "DONE"]).optional().describe("Filter by task status")
+                status: z.enum(["TODO", "DOING", "DONE"]).optional()
             }
         },
         async ({ status }: { status?: "TODO" | "DOING" | "DONE" }) => {
