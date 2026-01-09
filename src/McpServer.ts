@@ -1,12 +1,5 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-// Use z from the SDK if available, or just rely on runtime validation.
-// The MCP SDK exports z as part of its types usually, or we need to ensure versions match.
-// For now, let's try to not use zod directly in the registerTool inputSchema if possible, or cast it.
-// Actually, the issue is likely due to strict checking of the inputSchema type.
-// The MCP SDK expects a specific Zod version or a JSON Schema.
-// Let's try to import z from zod and cast the schema to any to bypass the deep type check error,
-// while keeping the runtime behavior correct.
 import { z } from "zod";
 import * as http from "http";
 import * as crypto from "crypto";
@@ -137,9 +130,8 @@ Your goal is to help users find, understand, and synthesize information from the
         }
     );
 
-    // Cast the schema object to any to avoid "excessively deep type instantiation" errors
-    // caused by mismatched Zod versions or complex type inference in the MCP SDK.
-    mcpServer.registerTool(
+    // Cast everything to any to bypass strict type checking issues with MCP SDK and Zod
+    (mcpServer.registerTool as any)(
         "search_notes",
         {
             description: "Search for notes by content, title, or tags",
@@ -151,7 +143,7 @@ Your goal is to help users find, understand, and synthesize information from the
             const { query } = args;
             log(`Tool called: search_notes with query "${query}"`);
             if (!isIndexReady()) {
-                return { content: [{ type: "text", text: "Index not ready" }] };
+                return { content: [{ type: "text" as const, text: "Index not ready" }] };
             }
             const index = sharedIndex2();
             const lowerQuery = query.toLowerCase();
@@ -172,7 +164,7 @@ Your goal is to help users find, understand, and synthesize information from the
 
             return {
                 content: [{
-                    type: "text",
+                    type: "text" as const,
                     text: JSON.stringify(results, null, 2)
                 }]
             };
@@ -180,7 +172,7 @@ Your goal is to help users find, understand, and synthesize information from the
     );
 
     if (semanticSearch) {
-        mcpServer.registerTool(
+        (mcpServer.registerTool as any)(
             "semantic_search",
             {
                 description: "Search for notes using semantic embeddings based on link contexts. Results are ordered by relevance.",
@@ -193,10 +185,9 @@ Your goal is to help users find, understand, and synthesize information from the
             async (args: any) => {
                 const { query, limit, offset } = args;
                 log(`Tool called: semantic_search with query "${query}"`);
-                if (!semanticSearch) return { content: [{ type: "text", text: "Semantic search not configured" }] };
+                if (!semanticSearch) return { content: [{ type: "text" as const, text: "Semantic search not configured" }] };
                 const results = await semanticSearch.search(query, limit || 50, offset || 0);
 
-                // Simplify results as requested: only context and source
                 const simplified = results.map(r => ({
                     context: r.context,
                     source: r.sourceLink
@@ -204,7 +195,7 @@ Your goal is to help users find, understand, and synthesize information from the
 
                 return {
                     content: [{
-                        type: "text",
+                        type: "text" as const,
                         text: JSON.stringify(simplified, null, 2)
                     }]
                 };
@@ -212,7 +203,7 @@ Your goal is to help users find, understand, and synthesize information from the
         );
     }
 
-    mcpServer.registerTool(
+    (mcpServer.registerTool as any)(
         "read_note",
         {
             description: "Read the content of a note by its name (link name)",
@@ -224,12 +215,12 @@ Your goal is to help users find, understand, and synthesize information from the
             const { name } = args;
             log(`Tool called: read_note for "${name}"`);
             if (!isIndexReady()) {
-                return { content: [{ type: "text", text: "Index not ready" }] };
+                return { content: [{ type: "text" as const, text: "Index not ready" }] };
             }
             const index = sharedIndex2();
             const file = index.allFiles().find(f => f.link.linkName() === name);
             if (!file) {
-                return { isError: true, content: [{ type: "text", text: `Note not found: ${name}` }] };
+                return { isError: true, content: [{ type: "text" as const, text: `Note not found: ${name}` }] };
             }
 
             const noteData = {
@@ -252,14 +243,14 @@ Your goal is to help users find, understand, and synthesize information from the
 
             return {
                 content: [{
-                    type: "text",
+                    type: "text" as const,
                     text: JSON.stringify(noteData, null, 2)
                 }]
             };
         }
     );
 
-    mcpServer.registerTool(
+    (mcpServer.registerTool as any)(
         "get_tasks",
         {
             description: "Get tasks, optionally filtered by status (TODO, DOING, DONE)",
@@ -271,7 +262,7 @@ Your goal is to help users find, understand, and synthesize information from the
             const { status } = args;
             log(`Tool called: get_tasks with status "${status}"`);
             if (!isIndexReady()) {
-                return { content: [{ type: "text", text: "Index not ready" }] };
+                return { content: [{ type: "text" as const, text: "Index not ready" }] };
             }
             const index = sharedIndex2();
             let tasks = index.allFiles().flatMap(f => f.tasks);
@@ -296,7 +287,7 @@ Your goal is to help users find, understand, and synthesize information from the
 
             return {
                 content: [{
-                    type: "text",
+                    type: "text" as const,
                     text: JSON.stringify(result, null, 2)
                 }]
             };
@@ -308,24 +299,20 @@ Your goal is to help users find, understand, and synthesize information from the
         log(`Incoming request: ${req.method} ${url.pathname}`);
 
         if (url.pathname === "/sse" || url.pathname === "/messages" || url.pathname === "/mcp") {
-            // Get or create transport for this session
             const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
             let transport: StreamableHTTPServerTransport;
 
             if (sessionId && transports.has(sessionId)) {
-                // Reuse existing transport for this session
                 transport = transports.get(sessionId)!;
                 log(`Reusing transport for session: ${sessionId}`);
             } else {
-                // Create new transport for new session
                 const newSessionId = crypto.randomUUID();
                 transport = new StreamableHTTPServerTransport({
                     sessionIdGenerator: () => newSessionId,
                     enableJsonResponse: true
                 });
 
-                // Connect the transport to the MCP server
                 await mcpServer!.connect(transport);
 
                 transports.set(newSessionId, transport);
@@ -353,7 +340,6 @@ Your goal is to help users find, understand, and synthesize information from the
             if (httpServer) {
                 httpServer.close();
             }
-            // Close all transports
             for (const [sessionId, transport] of transports.entries()) {
                 log(`Closing transport for session: ${sessionId}`);
                 transport.close();
@@ -385,20 +371,17 @@ export async function stopMcpServer() {
 
     log("Stopping MCP Server...");
 
-    // Stop semantic search embedding generation
     if (semanticSearch) {
         log("Stopping semantic search...");
         semanticSearch.stopGeneration();
         semanticSearch = null;
     }
 
-    // Dispose file watcher
     if (fileWatcherDisposable) {
         fileWatcherDisposable.dispose();
         fileWatcherDisposable = null;
     }
 
-    // Close HTTP server
     if (httpServer) {
         httpServer.close(() => {
             log("HTTP Server closed");
@@ -406,7 +389,6 @@ export async function stopMcpServer() {
         httpServer = null;
     }
 
-    // Close all transports
     log(`Closing ${transports.size} transport(s)...`);
     for (const [sessionId, transport] of transports.entries()) {
         log(`Closing transport for session: ${sessionId}`);
@@ -414,10 +396,8 @@ export async function stopMcpServer() {
     }
     transports.clear();
 
-    // Clear server instance
     mcpServer = null;
 
-    // Remove from extension subscriptions if possible
     if (serverDisposable && extensionContext) {
         const index = extensionContext.subscriptions.indexOf(serverDisposable);
         if (index > -1) {
