@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Task, TaskState, prioTask, snoozeTask, completeTask, changeCategory, resetSnooze } from './Tasks';
+import { Task, TaskState } from './Tasks';
 import { sharedIndex2 } from './Index2';
 
 export class TaskWebviewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
@@ -47,10 +47,10 @@ export class TaskWebviewProvider implements vscode.WebviewViewProvider, vscode.D
 
     private _getAllTasks(): any[] {
         const allTasks: Task[] = [];
-        const files = sharedIndex2().getAllFiles();
+        const files = sharedIndex2().allFiles();
         
-        files.forEach(file => {
-            file.tasks.forEach(task => {
+        files.forEach((file: any) => {
+            file.tasks.forEach((task: Task) => {
                 if (task.state === TaskState.Todo || task.state === TaskState.Doing) {
                     allTasks.push(task);
                 }
