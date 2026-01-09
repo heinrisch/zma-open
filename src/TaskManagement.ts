@@ -46,8 +46,6 @@ export class TaskManagementPanel {
                         this.refresh();
                         break;
                     case 'setPriority':
-                         prioTask(message.taskId, -9999); // Reset logic roughly or need dedicated reset
-                         // Tasks.ts logic for set 0: prioTask checks if value is 0 and sets it.
                          prioTask(message.taskId, 0);
                          this.refresh();
                          break;
@@ -63,12 +61,9 @@ export class TaskManagementPanel {
             this._disposables
         );
         
-        // Listen to workspace changes to update the view
         vscode.workspace.onDidChangeTextDocument(() => {
-             // Debounce or just refresh? Since index2 updates on save, maybe wait for save?
         });
         vscode.workspace.onDidSaveTextDocument(() => {
-            // Give Index2 a moment to update
             setTimeout(() => this.refresh(), 200);
         });
     }
@@ -131,9 +126,6 @@ export class TaskManagementPanel {
             const files = sharedIndex2().allFiles();
             files.forEach(file => {
                 file.tasks.forEach(task => {
-                    // Only TODO and DOING, or recently DONE (handled by frontend if needed)
-                    // Requirements say "lists all tasks that are in TODO". 
-                    // But also "Grouped in their different categories".
                     if (task.state === TaskState.Todo || task.state === TaskState.Doing) {
                         allTasks.push(task);
                     }
@@ -143,7 +135,6 @@ export class TaskManagementPanel {
             console.error("Index not ready or error fetching tasks", e);
         }
 
-        // Sort by priority (descending)
         allTasks.sort((a, b) => b.prio() - a.prio());
 
         return allTasks.map(task => ({
@@ -165,7 +156,6 @@ export class TaskManagementPanel {
         const task = this.getTaskById(taskId);
         if (task) {
             await changeCategory(task, newCategory);
-            // File watcher will trigger refresh
         }
     }
 
@@ -173,7 +163,6 @@ export class TaskManagementPanel {
         const task = this.getTaskById(taskId);
         if (task) {
             await completeTask(task);
-            // File watcher will trigger refresh
         }
     }
     
@@ -211,7 +200,6 @@ export class TaskManagementPanel {
                     color: var(--vscode-editor-foreground);
                     font-family: var(--vscode-font-family);
                 }
-                /* Scrollbar styling */
                 ::-webkit-scrollbar {
                     width: 10px;
                     height: 10px;
@@ -243,9 +231,35 @@ export class TaskManagementPanel {
                     color: var(--vscode-dropdown-foreground);
                     border: 1px solid var(--vscode-dropdown-border);
                 }
-                .prio-high { color: #f87171; }
-                .prio-med { color: #fbbf24; }
-                .prio-low { color: #60a5fa; }
+                .prio-high { border-left: 3px solid #ef4444; background-color: rgba(239, 68, 68, 0.05); }
+                .prio-med { border-left: 3px solid #f59e0b; background-color: rgba(245, 158, 11, 0.05); }
+                .prio-low { border-left: 3px solid #3b82f6; background-color: rgba(59, 130, 246, 0.05); }
+                .prio-neutral { border-left: 3px solid transparent; }
+                
+                .group-header {
+                    cursor: pointer;
+                    user-select: none;
+                }
+                .group-header:hover {
+                    background-color: var(--vscode-list-hoverBackground);
+                }
+                .chevron {
+                    transition: transform 0.2s;
+                }
+                .collapsed .chevron {
+                    transform: rotate(-90deg);
+                }
+                .collapsed + .group-content {
+                    display: none;
+                }
+                
+                .action-group {
+                   opacity: 0.8;
+                   transition: opacity 0.2s;
+                }
+                .task-row:hover .action-group {
+                   opacity: 1;
+                }
             </style>
         </head>
         <body class="h-screen flex flex-col overflow-hidden">
@@ -262,10 +276,8 @@ export class TaskManagementPanel {
                 const vscode = acquireVsCodeApi();
                 let allTasks = [];
                 let allCategories = [];
+                let collapsedGroups = new Set();
                 
-                // Undo state
-                let completedTasks = []; 
-
                 window.addEventListener('message', event => {
                     const message = event.data;
                     if (message.type === 'update') {
@@ -274,6 +286,15 @@ export class TaskManagementPanel {
                         render();
                     }
                 });
+
+                function toggleGroup(groupName) {
+                    if (collapsedGroups.has(groupName)) {
+                        collapsedGroups.delete(groupName);
+                    } else {
+                        collapsedGroups.add(groupName);
+                    }
+                    render();
+                }
 
                 function render() {
                     const container = document.getElementById('taskList');
@@ -287,7 +308,6 @@ export class TaskManagementPanel {
 
                     countEl.innerText = allTasks.length + ' tasks';
 
-                    // Group tasks
                     const groups = {};
                     allTasks.forEach(task => {
                         const g = task.group || 'Inbox';
@@ -298,7 +318,6 @@ export class TaskManagementPanel {
                     let html = '';
                     const sortedGroups = Object.keys(groups).sort();
                     
-                    // Move 'Inbox' to top if exists, 'Snoozed' to bottom
                     if (groups['Inbox']) {
                          sortedGroups.splice(sortedGroups.indexOf('Inbox'), 1);
                          sortedGroups.unshift('Inbox');
@@ -309,63 +328,68 @@ export class TaskManagementPanel {
                     }
 
                     sortedGroups.forEach(groupName => {
+                        const isCollapsed = collapsedGroups.has(groupName);
+                        const count = groups[groupName].length;
+                        
                         html += \`
                             <div class="group-section">
-                                <div class="sticky top-0 bg-[var(--vscode-editor-background)] py-2 mb-2 border-b-2 border-[var(--vscode-focusBorder)] font-bold text-lg flex items-center gap-2 z-0">
-                                    <span>\${groupName}</span>
-                                    <span class="text-xs opacity-50 font-normal">(\${groups[groupName].length})</span>
+                                <div class="group-header sticky top-0 bg-[var(--vscode-editor-background)] py-2 mb-2 border-b border-[var(--vscode-focusBorder)] flex items-center gap-2 z-10 \${isCollapsed ? 'collapsed' : ''}" onclick="toggleGroup('\${groupName}')">
+                                    <svg class="chevron w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    <span class="font-bold text-lg">\${groupName}</span>
+                                    <span class="text-xs opacity-50 font-normal">(\${count})</span>
                                 </div>
-                                <div class="grid gap-1">
+                                <div class="group-content grid gap-1">
                         \`;
                         
-                        groups[groupName].forEach(task => {
-                            const isHighPrio = task.prio > 5;
-                            const isLowPrio = task.prio < -5;
-                            const prioClass = isHighPrio ? 'prio-high' : (isLowPrio ? 'prio-low' : 'prio-med');
-                            
-                            html += \`
-                                <div class="task-row grid grid-cols-[1fr_auto] gap-4 p-2 items-center rounded group hover:bg-[var(--vscode-list-hoverBackground)]" data-id="\${task.id}">
-                                    <div class="flex flex-col gap-1 min-w-0" onclick="openTask('\${task.id}')">
-                                        <div class="flex items-center gap-2">
-                                            <span class="font-mono text-xs opacity-50 select-none cursor-pointer" title="Priority: \${task.prio.toFixed(1)}">[\${task.prio.toFixed(0)}]</span>
-                                            <span class="truncate cursor-pointer hover:underline">\${escapeHtml(task.taskWithoutState)}</span>
+                        if (!isCollapsed) {
+                            groups[groupName].forEach(task => {
+                                const isHighPrio = task.prio > 5;
+                                const isMedPrio = task.prio > 0 && task.prio <= 5;
+                                const isLowPrio = task.prio < 0;
+                                const prioClass = isHighPrio ? 'prio-high' : (isMedPrio ? 'prio-med' : (isLowPrio ? 'prio-low' : 'prio-neutral'));
+                                
+                                html += \`
+                                    <div class="task-row grid grid-cols-[1fr_auto] gap-4 p-2 items-center rounded group \${prioClass}" data-id="\${task.id}">
+                                        <div class="flex flex-col gap-1 min-w-0 cursor-pointer" onclick="openTask('\${task.id}')">
+                                            <div class="flex items-center gap-2">
+                                                <span class="font-mono text-xs opacity-50 select-none" title="Priority: \${task.prio.toFixed(1)}">[\${task.prio.toFixed(0)}]</span>
+                                                <span class="truncate hover:underline font-medium">\${escapeHtml(task.taskWithoutState)}</span>
+                                            </div>
+                                            <div class="text-xs opacity-50 truncate pl-8">\${task.location.filePath.split(/[\\\\/]/).pop()}</div>
                                         </div>
-                                        <div class="text-xs opacity-50 truncate pl-8">\${task.location.filePath.split(/[\\\\/]/).pop()}</div>
+                                        
+                                        <div class="action-group flex items-center gap-2">
+                                            <select onchange="changeCategory('\${task.id}', this.value)" class="text-xs p-1 rounded max-w-[100px] opacity-90 hover:opacity-100" title="Change Category">
+                                                <option value="" disabled selected>Move</option>
+                                                \${allCategories.map(c => \`<option value="\${c}">\${c}</option>\`).join('')}
+                                                <option value="Inbox">Inbox</option>
+                                                <option value="__NEW__">+ New</option>
+                                            </select>
+
+                                            <div class="flex items-center bg-[var(--vscode-textBlockQuote-background)] rounded overflow-hidden border border-[var(--vscode-panel-border)]">
+                                                <button class="btn-icon text-[10px] text-blue-400 hover:text-blue-300" onclick="changePrio('\${task.id}', -10)" title="-10 Prio">--</button>
+                                                <button class="btn-icon text-[10px] text-blue-400 hover:text-blue-300" onclick="changePrio('\${task.id}', -5)" title="-5 Prio">-</button>
+                                                <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="setPrio('\${task.id}', 0)" title="Reset Prio">0</button>
+                                                <button class="btn-icon text-[10px] text-red-400 hover:text-red-300" onclick="changePrio('\${task.id}', 5)" title="+5 Prio">+</button>
+                                                <button class="btn-icon text-[10px] text-red-400 hover:text-red-300" onclick="changePrio('\${task.id}', 10)" title="+10 Prio">++</button>
+                                            </div>
+
+                                            <div class="flex items-center bg-[var(--vscode-textBlockQuote-background)] rounded overflow-hidden border border-[var(--vscode-panel-border)] ml-1">
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 1)" title="1 Day">1d</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 5)" title="5 Days">5d</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 7)" title="1 Week">7d</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 30)" title="1 Month">30d</button>
+                                                <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="snooze('\${task.id}', 0)" title="Reset">R</button>
+                                            </div>
+
+                                            <button class="ml-2 bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs font-bold shadow-sm" onclick="complete('\${task.id}')">
+                                                ✓
+                                            </button>
+                                        </div>
                                     </div>
-                                    
-                                    <div class="flex items-center gap-2 opacity-10 group-hover:opacity-100 transition-opacity">
-                                        <!-- Category Dropdown -->
-                                        <select onchange="changeCategory('\${task.id}', this.value)" class="text-xs p-1 rounded max-w-[100px]" title="Change Category">
-                                            <option value="" disabled selected>Move...</option>
-                                            \${allCategories.map(c => \`<option value="\${c}">\${c}</option>\`).join('')}
-                                            <option value="Inbox">Inbox</option> <!-- Always available -->
-                                            <option value="__NEW__">+ New...</option>
-                                        </select>
-
-                                        <!-- Priority Controls -->
-                                        <div class="flex items-center bg-[var(--vscode-textBlockQuote-background)] rounded overflow-hidden">
-                                            <button class="btn-icon text-[10px]" onclick="changePrio('\${task.id}', -5)" title="-5 Prio">--</button>
-                                            <button class="btn-icon text-[10px]" onclick="changePrio('\${task.id}', -1)" title="-1 Prio">-</button>
-                                            <button class="btn-icon text-[10px]" onclick="setPrio('\${task.id}', 0)" title="Reset Prio">0</button>
-                                            <button class="btn-icon text-[10px]" onclick="changePrio('\${task.id}', 1)" title="+1 Prio">+</button>
-                                            <button class="btn-icon text-[10px]" onclick="changePrio('\${task.id}', 5)" title="+5 Prio">++</button>
-                                        </div>
-
-                                        <!-- Snooze Controls -->
-                                        <div class="flex items-center bg-[var(--vscode-textBlockQuote-background)] rounded overflow-hidden ml-1">
-                                            <button class="btn-icon text-[10px]" onclick="snooze('\${task.id}', 1)" title="Snooze 1 Day">1d</button>
-                                            <button class="btn-icon text-[10px]" onclick="snooze('\${task.id}', 7)" title="Snooze 1 Week">7d</button>
-                                            <button class="btn-icon text-[10px]" onclick="snooze('\${task.id}', 0)" title="Reset Snooze">R</button>
-                                        </div>
-
-                                        <!-- Complete Button -->
-                                        <button class="ml-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs" onclick="complete('\${task.id}')">
-                                            Done
-                                        </button>
-                                    </div>
-                                </div>
-                            \`;
-                        });
+                                \`;
+                            });
+                        }
                         
                         html += \`</div></div>\`;
                     });
@@ -385,7 +409,6 @@ export class TaskManagementPanel {
 
                 function changeCategory(id, newCat) {
                     if (newCat === '__NEW__') {
-                        // Prompt in vscode not implemented, maybe just ignore or handle via command
                         return;
                     }
                     vscode.postMessage({ type: 'changeCategory', taskId: id, newCategory: newCat });
@@ -404,19 +427,14 @@ export class TaskManagementPanel {
                 }
 
                 function complete(id) {
-                    // Optimistic update: Find the row and strike it through or opacity
                     const row = document.querySelector(\`div[data-id="\${id}"]\`);
                     if (row) {
                         row.style.opacity = '0.3';
                         row.style.pointerEvents = 'none';
-                        // Add undo button?
-                        const btn = row.querySelector('button.bg-green-600');
-                        if (btn) btn.innerText = '✓';
                     }
                     vscode.postMessage({ type: 'complete', taskId: id });
                 }
 
-                // Initial load
                 vscode.postMessage({ type: 'refresh' });
             </script>
         </body>
