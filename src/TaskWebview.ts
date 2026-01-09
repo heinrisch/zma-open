@@ -536,12 +536,12 @@ export class TaskWebviewProvider implements vscode.WebviewViewProvider {
       document.getElementById('totalCategories').textContent = categories.length;
 
       if (totalTasks === 0) {
-        container.innerHTML = `
+        container.innerHTML = \`
           <div class="empty-state">
             <div class="empty-state-icon">✓</div>
             <div>No active tasks</div>
           </div>
-        `;
+        \`;
         return;
       }
 
@@ -551,18 +551,18 @@ export class TaskWebviewProvider implements vscode.WebviewViewProvider {
         const tasks = allTasks[category];
         const groupDiv = document.createElement('div');
         groupDiv.className = 'category-group';
-        groupDiv.innerHTML = `
+        groupDiv.innerHTML = \`
           <div class="category-header" onclick="toggleCategory(this)">
             <div class="category-title">
               <span class="collapse-icon">▼</span>
-              <span>${escapeHtml(category)}</span>
-              <span class="category-count">${tasks.length}</span>
+              <span>\${escapeHtml(category)}</span>
+              <span class="category-count">\${tasks.length}</span>
             </div>
           </div>
           <div class="task-list">
-            ${tasks.map(task => renderTask(task)).join('')}
+            \${tasks.map(task => renderTask(task)).join('')}
           </div>
-        `;
+        \`;
         container.appendChild(groupDiv);
       });
     }
@@ -570,43 +570,43 @@ export class TaskWebviewProvider implements vscode.WebviewViewProvider {
     function renderTask(task) {
       const priorityClass = task.priority > 10 ? 'high' : task.priority > 5 ? 'medium' : '';
       
-      return `
-        <div class="task-item" data-task-id="${task.id}">
+      return \`
+        <div class="task-item" data-task-id="\${task.id}">
           <div class="task-main">
-            <div class="task-priority ${priorityClass}">${task.priority}</div>
-            <div class="task-text" onclick="openTask('${task.id}')">${escapeHtml(task.text)}</div>
+            <div class="task-priority \${priorityClass}">\${task.priority}</div>
+            <div class="task-text" onclick="openTask('\${task.id}')">\${escapeHtml(task.text)}</div>
           </div>
           <div class="task-meta">
-            <span class="task-state">${task.state}</span>
-            <span class="task-file">📄 ${escapeHtml(task.file)}</span>
+            <span class="task-state">\${task.state}</span>
+            <span class="task-file">📄 \${escapeHtml(task.file)}</span>
           </div>
           <div class="task-actions">
-            <select class="category-select" onchange="changeCategory('${task.id}', this.value)">
+            <select class="category-select" onchange="changeCategory('\${task.id}', this.value)">
               <option value="">Move to...</option>
-              ${allCategories.filter(c => c !== task.category).map(cat => 
-                `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`
+              \${allCategories.filter(c => c !== task.category).map(cat => 
+                \`<option value="\${escapeHtml(cat)}">\${escapeHtml(cat)}</option>\`
               ).join('')}
             </select>
             <div class="action-group">
-              <button class="btn" onclick="snooze('${task.id}', 1)">+1d</button>
-              <button class="btn" onclick="snooze('${task.id}', 5)">+5d</button>
-              <button class="btn" onclick="snooze('${task.id}', 7)">+7d</button>
-              <button class="btn" onclick="snooze('${task.id}', 30)">+30d</button>
-              <button class="btn" onclick="resetSnooze('${task.id}')">Reset</button>
+              <button class="btn" onclick="snooze('\${task.id}', 1)">+1d</button>
+              <button class="btn" onclick="snooze('\${task.id}', 5)">+5d</button>
+              <button class="btn" onclick="snooze('\${task.id}', 7)">+7d</button>
+              <button class="btn" onclick="snooze('\${task.id}', 30)">+30d</button>
+              <button class="btn" onclick="resetSnooze('\${task.id}')">Reset</button>
             </div>
             <div class="action-group">
-              <button class="btn" onclick="priority('${task.id}', -10)">-10</button>
-              <button class="btn" onclick="priority('${task.id}', -5)">-5</button>
-              <button class="btn" onclick="priority('${task.id}', -1)">-1</button>
-              <button class="btn" onclick="priority('${task.id}', 1)">+1</button>
-              <button class="btn" onclick="priority('${task.id}', 5)">+5</button>
-              <button class="btn" onclick="priority('${task.id}', 10)">+10</button>
-              <button class="btn" onclick="priority('${task.id}', 0)">Reset</button>
+              <button class="btn" onclick="priority('\${task.id}', -10)">-10</button>
+              <button class="btn" onclick="priority('\${task.id}', -5)">-5</button>
+              <button class="btn" onclick="priority('\${task.id}', -1)">-1</button>
+              <button class="btn" onclick="priority('\${task.id}', 1)">+1</button>
+              <button class="btn" onclick="priority('\${task.id}', 5)">+5</button>
+              <button class="btn" onclick="priority('\${task.id}', 10)">+10</button>
+              <button class="btn" onclick="priority('\${task.id}', 0)">Reset</button>
             </div>
-            <button class="btn btn-success" onclick="complete('${task.id}')">✓ Complete</button>
+            <button class="btn btn-success" onclick="complete('\${task.id}')">✓ Complete</button>
           </div>
         </div>
-      `;
+      \`;
     }
 
     function toggleCategory(header) {
@@ -663,7 +663,7 @@ export class TaskWebviewProvider implements vscode.WebviewViewProvider {
       banner.classList.add('show');
 
       // Mark task as completed in UI
-      const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+      const taskElement = document.querySelector(\`[data-task-id="\${taskId}"]\`);
       if (taskElement) {
         taskElement.classList.add('completed');
       }
