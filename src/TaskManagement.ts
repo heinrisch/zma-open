@@ -63,9 +63,6 @@ export class TaskManagementPanel {
             null,
             this._disposables
         );
-        
-        // Removed the auto-refresh on save to prevent completed tasks from disappearing
-        // Users must manually refresh to clear completed tasks
     }
 
     public static createOrShow(extensionUri: vscode.Uri) {
@@ -301,6 +298,7 @@ export class TaskManagementPanel {
                 <div class="flex items-center gap-4">
                     <h1 class="text-xl font-bold">Tasks</h1>
                     <button class="refresh-btn" onclick="vscode.postMessage({ type: 'refresh' })">Refresh</button>
+                    <button class="refresh-btn" onclick="toggleAllGroups()">Collapse All</button>
                 </div>
                 <div class="text-sm opacity-75" id="taskCount">Loading...</div>
             </div>
@@ -315,6 +313,7 @@ export class TaskManagementPanel {
                 let allCategories = [];
                 let collapsedGroups = new Set();
                 let completedTaskIds = new Set();
+                let allGroupNames = [];
 
                 window.addEventListener('message', event => {
                     const message = event.data;
@@ -334,6 +333,17 @@ export class TaskManagementPanel {
                         collapsedGroups.delete(groupName);
                     } else {
                         collapsedGroups.add(groupName);
+                    }
+                    render();
+                }
+
+                function toggleAllGroups() {
+                    if (collapsedGroups.size === allGroupNames.length) {
+                        // All collapsed, expand all
+                        collapsedGroups.clear();
+                    } else {
+                        // Some or none collapsed, collapse all
+                        allGroupNames.forEach(name => collapsedGroups.add(name));
                     }
                     render();
                 }
@@ -368,6 +378,8 @@ export class TaskManagementPanel {
                          sortedGroups.splice(sortedGroups.indexOf('Snoozed'), 1);
                          sortedGroups.push('Snoozed');
                     }
+
+                    allGroupNames = sortedGroups;
 
                     sortedGroups.forEach(groupName => {
                         const isCollapsed = collapsedGroups.has(groupName);
@@ -422,7 +434,7 @@ export class TaskManagementPanel {
                                             <div class="flex items-center bg-[var(--vscode-textBlockQuote-background)] rounded overflow-hidden border border-[var(--vscode-panel-border)] ml-1">
                                                 <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 1)" title="1 Day" \${isCompleted ? 'disabled' : ''}>1d</button>
                                                 <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 5)" title="5 Days" \${isCompleted ? 'disabled' : ''}>5d</button>
-                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 7)" title="1 Week" \${isCompleted ? 'disabled' : ''}>7d</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 7)" title="1 Week" \${isComplapsed ? 'disabled' : ''}>7d</button>
                                                 <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 30)" title="1 Month" \${isCompleted ? 'disabled' : ''}>30d</button>
                                                 <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="snooze('\${task.id}', 0)" title="Reset" \${isCompleted ? 'disabled' : ''}>R</button>
                                             </div>
