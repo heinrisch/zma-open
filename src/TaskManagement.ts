@@ -53,11 +53,6 @@ export class TaskManagementPanel {
                         await this.handleComplete(message.taskId);
                         break;
                     case 'undoComplete':
-                        // Re-open/undo complete logic. 
-                        // completeTask() does a text replace TODO->DONE.
-                        // We need to implement undoCompleteTask or handle manually.
-                        // Since Tasks.ts doesn't export undo, we'll manually revert DONE->TODO here or add helper.
-                        // For now, let's implement a text replacement reverse of completeTask.
                         await this.handleUndoComplete(message.taskId);
                         break;
                     case 'openTask':
@@ -69,11 +64,8 @@ export class TaskManagementPanel {
             this._disposables
         );
         
-        vscode.workspace.onDidChangeTextDocument(() => {
-        });
-        vscode.workspace.onDidSaveTextDocument(() => {
-            setTimeout(() => this.refresh(), 200);
-        });
+        // Removed the auto-refresh on save to prevent completed tasks from disappearing
+        // Users must manually refresh to clear completed tasks
     }
 
     public static createOrShow(extensionUri: vscode.Uri) {
@@ -134,11 +126,6 @@ export class TaskManagementPanel {
             const files = sharedIndex2().allFiles();
             files.forEach(file => {
                 file.tasks.forEach(task => {
-                    // Include TODO/DOING.
-                    // Also include DONE if they were recently completed (to allow undo in UI if index hasn't refreshed fully)? 
-                    // Actually, if we want to support Undo in UI, we might need to fetch the task even if it is DONE 
-                    // IF we are tracking it in the webview state.
-                    // But for initial load, we only want TODO/DOING.
                     if (task.state === TaskState.Todo || task.state === TaskState.Doing) {
                         allTasks.push(task);
                     }
@@ -151,17 +138,6 @@ export class TaskManagementPanel {
         allTasks.sort((a, b) => b.prio() - a.prio());
 
         return allTasks.map(task => {
-            // Get TaskData for snooze info
-            // We need to access getTaskData from Tasks.ts, but it's not exported directly in a way we can use easily on Task object without import
-            // The Task object has getGroup() which uses getTaskData internally.
-            // Let's rely on the fact that if group is Snoozed, we can try to re-fetch the data or expose it.
-            // Since we can't easily change Tasks.ts right now without another file write, let's cheat slightly:
-            // We know how TaskData is stored (task-data.json). But better to add a method or just use the internal logic.
-            // Actually, `getGroup` returns 'Snoozed' if snoozed.
-            // We'll pass a formatted snooze date if available.
-            
-            // To get the actual date, we might need to read task data.
-            // Let's import getTaskData if possible. It is exported in Tasks.ts
             const { getTaskData } = require('./Tasks'); 
             const td = getTaskData(task.id);
             const snoozeDate = td.getSnoozeUntil();
@@ -205,11 +181,10 @@ export class TaskManagementPanel {
     private async handleUndoComplete(taskId: string) {
         const task = this.getTaskById(taskId);
         if (task) {
-            // Manually reverse completion
             const document = await vscode.workspace.openTextDocument(vscode.Uri.file(task.location.link.filePath()));
             const edit = new vscode.WorkspaceEdit();
             const line = document.lineAt(task.location.row);
-            const newText = line.text.replace('DONE', 'TODO'); // Simple revert
+            const newText = line.text.replace('DONE', 'TODO');
             edit.replace(document.uri, line.range, newText);
             await vscode.workspace.applyEdit(edit);
         }
@@ -302,20 +277,31 @@ export class TaskManagementPanel {
                     display: none;
                 }
                 
-                .action-group {
-                   /* Always visible as requested previously */
-                }
-                
                 .completed-task {
                     opacity: 0.5;
                     text-decoration: line-through;
                     background-color: rgba(0, 255, 0, 0.05);
                 }
+                
+                .refresh-btn {
+                    padding: 4px 8px;
+                    background: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
+                    border-radius: 2px;
+                    font-size: 12px;
+                    cursor: pointer;
+                }
+                .refresh-btn:hover {
+                    background: var(--vscode-button-hoverBackground);
+                }
             </style>
         </head>
         <body class="h-screen flex flex-col overflow-hidden">
             <div class="p-4 border-b border-[var(--vscode-panel-border)] flex justify-between items-center bg-[var(--vscode-editor-background)] z-10">
-                <h1 class="text-xl font-bold">Tasks</h1>
+                <div class="flex items-center gap-4">
+                    <h1 class="text-xl font-bold">Tasks</h1>
+                    <button class="refresh-btn" onclick="vscode.postMessage({ type: 'refresh' })">Refresh</button>
+                </div>
                 <div class="text-sm opacity-75" id="taskCount">Loading...</div>
             </div>
             
@@ -328,9 +314,6 @@ export class TaskManagementPanel {
                 let allTasks = [];
                 let allCategories = [];
                 let collapsedGroups = new Set();
-                
-                // Track locally completed tasks to allow undo before refresh
-                // Set of IDs
                 let completedTaskIds = new Set();
 
                 window.addEventListener('message', event => {
@@ -338,12 +321,7 @@ export class TaskManagementPanel {
                     if (message.type === 'update') {
                         allTasks = message.tasks;
                         allCategories = message.categories;
-                        // Clear local completion state on full refresh if task is gone or updated
-                        // Actually, better to keep the set but remove IDs that are no longer in allTasks
-                        // or just clear it if we trust the backend refresh to reflect state.
-                        // However, we want to allow undo "until refresh" or "until user presses refresh".
-                        // The backend sends updates on file save.
-                        // If a task comes back as TODO, remove from completedTaskIds.
+                        
                         const currentIds = new Set(allTasks.map(t => t.id));
                         completedTaskIds = new Set([...completedTaskIds].filter(id => currentIds.has(id)));
                         
@@ -434,9 +412,11 @@ export class TaskManagementPanel {
                                             </select>
 
                                             <div class="flex items-center bg-[var(--vscode-textBlockQuote-background)] rounded overflow-hidden border border-[var(--vscode-panel-border)]">
+                                                <button class="btn-icon text-[10px] text-blue-400 hover:text-blue-300" onclick="changePrio('\${task.id}', -5)" title="-5 Prio" \${isCompleted ? 'disabled' : ''}>--</button>
                                                 <button class="btn-icon text-[10px] text-blue-400 hover:text-blue-300" onclick="changePrio('\${task.id}', -1)" title="-1 Prio" \${isCompleted ? 'disabled' : ''}>-</button>
                                                 <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="setPrio('\${task.id}', 0)" title="Reset Prio" \${isCompleted ? 'disabled' : ''}>0</button>
                                                 <button class="btn-icon text-[10px] text-red-400 hover:text-red-300" onclick="changePrio('\${task.id}', 1)" title="+1 Prio" \${isCompleted ? 'disabled' : ''}>+</button>
+                                                <button class="btn-icon text-[10px] text-red-400 hover:text-red-300" onclick="changePrio('\${task.id}', 5)" title="+5 Prio" \${isCompleted ? 'disabled' : ''}>++</button>
                                             </div>
 
                                             <div class="flex items-center bg-[var(--vscode-textBlockQuote-background)] rounded overflow-hidden border border-[var(--vscode-panel-border)] ml-1">
