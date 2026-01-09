@@ -13,7 +13,8 @@
   "activationEvents": [
     "onLanguage:markdown",
     "onCommand:zma.init",
-    "onCommand:zma.inlineFold.toggleMarkdownUrls"
+    "onCommand:zma.inlineFold.toggleMarkdownUrls",
+    "onCommand:zma.openTaskManagement"
   ],
   "main": "./out/main.js",
   "contributes": {
@@ -151,6 +152,10 @@
       {
         "command": "zma.mcp.stop",
         "title": "ZMA: Stop MCP Server"
+      },
+      {
+        "command": "zma.openTaskManagement",
+        "title": "ZMA: Open Task Management"
       }
     ],
     "menus": {
