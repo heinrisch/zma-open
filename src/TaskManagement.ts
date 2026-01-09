@@ -52,6 +52,14 @@ export class TaskManagementPanel {
                     case 'complete':
                         await this.handleComplete(message.taskId);
                         break;
+                    case 'undoComplete':
+                        // Re-open/undo complete logic. 
+                        // completeTask() does a text replace TODO->DONE.
+                        // We need to implement undoCompleteTask or handle manually.
+                        // Since Tasks.ts doesn't export undo, we'll manually revert DONE->TODO here or add helper.
+                        // For now, let's implement a text replacement reverse of completeTask.
+                        await this.handleUndoComplete(message.taskId);
+                        break;
                     case 'openTask':
                          this.handleOpenTask(message.taskId);
                          break;
@@ -126,6 +134,11 @@ export class TaskManagementPanel {
             const files = sharedIndex2().allFiles();
             files.forEach(file => {
                 file.tasks.forEach(task => {
+                    // Include TODO/DOING.
+                    // Also include DONE if they were recently completed (to allow undo in UI if index hasn't refreshed fully)? 
+                    // Actually, if we want to support Undo in UI, we might need to fetch the task even if it is DONE 
+                    // IF we are tracking it in the webview state.
+                    // But for initial load, we only want TODO/DOING.
                     if (task.state === TaskState.Todo || task.state === TaskState.Doing) {
                         allTasks.push(task);
                     }
@@ -137,19 +150,42 @@ export class TaskManagementPanel {
 
         allTasks.sort((a, b) => b.prio() - a.prio());
 
-        return allTasks.map(task => ({
-            id: task.id,
-            full: task.full,
-            state: task.state,
-            taskWithoutState: task.taskWithoutState,
-            group: task.getGroup(),
-            prio: task.prio(),
-            location: {
-                filePath: task.location.link.filePath(),
-                row: task.location.row,
-                column: task.location.column
+        return allTasks.map(task => {
+            // Get TaskData for snooze info
+            // We need to access getTaskData from Tasks.ts, but it's not exported directly in a way we can use easily on Task object without import
+            // The Task object has getGroup() which uses getTaskData internally.
+            // Let's rely on the fact that if group is Snoozed, we can try to re-fetch the data or expose it.
+            // Since we can't easily change Tasks.ts right now without another file write, let's cheat slightly:
+            // We know how TaskData is stored (task-data.json). But better to add a method or just use the internal logic.
+            // Actually, `getGroup` returns 'Snoozed' if snoozed.
+            // We'll pass a formatted snooze date if available.
+            
+            // To get the actual date, we might need to read task data.
+            // Let's import getTaskData if possible. It is exported in Tasks.ts
+            const { getTaskData } = require('./Tasks'); 
+            const td = getTaskData(task.id);
+            const snoozeDate = td.getSnoozeUntil();
+            const now = new Date();
+            let snoozeStr = '';
+            if (snoozeDate > now) {
+                snoozeStr = snoozeDate.toISOString().split('T')[0];
             }
-        }));
+
+            return {
+                id: task.id,
+                full: task.full,
+                state: task.state,
+                taskWithoutState: task.taskWithoutState,
+                group: task.getGroup(),
+                prio: task.prio(),
+                snoozeDate: snoozeStr,
+                location: {
+                    filePath: task.location.link.filePath(),
+                    row: task.location.row,
+                    column: task.location.column
+                }
+            };
+        });
     }
 
     private async handleChangeCategory(taskId: string, newCategory: string) {
@@ -163,6 +199,19 @@ export class TaskManagementPanel {
         const task = this.getTaskById(taskId);
         if (task) {
             await completeTask(task);
+        }
+    }
+
+    private async handleUndoComplete(taskId: string) {
+        const task = this.getTaskById(taskId);
+        if (task) {
+            // Manually reverse completion
+            const document = await vscode.workspace.openTextDocument(vscode.Uri.file(task.location.link.filePath()));
+            const edit = new vscode.WorkspaceEdit();
+            const line = document.lineAt(task.location.row);
+            const newText = line.text.replace('DONE', 'TODO'); // Simple revert
+            edit.replace(document.uri, line.range, newText);
+            await vscode.workspace.applyEdit(edit);
         }
     }
     
@@ -254,11 +303,13 @@ export class TaskManagementPanel {
                 }
                 
                 .action-group {
-                   opacity: 0.8;
-                   transition: opacity 0.2s;
+                   /* Always visible as requested previously */
                 }
-                .task-row:hover .action-group {
-                   opacity: 1;
+                
+                .completed-task {
+                    opacity: 0.5;
+                    text-decoration: line-through;
+                    background-color: rgba(0, 255, 0, 0.05);
                 }
             </style>
         </head>
@@ -278,11 +329,24 @@ export class TaskManagementPanel {
                 let allCategories = [];
                 let collapsedGroups = new Set();
                 
+                // Track locally completed tasks to allow undo before refresh
+                // Set of IDs
+                let completedTaskIds = new Set();
+
                 window.addEventListener('message', event => {
                     const message = event.data;
                     if (message.type === 'update') {
                         allTasks = message.tasks;
                         allCategories = message.categories;
+                        // Clear local completion state on full refresh if task is gone or updated
+                        // Actually, better to keep the set but remove IDs that are no longer in allTasks
+                        // or just clear it if we trust the backend refresh to reflect state.
+                        // However, we want to allow undo "until refresh" or "until user presses refresh".
+                        // The backend sends updates on file save.
+                        // If a task comes back as TODO, remove from completedTaskIds.
+                        const currentIds = new Set(allTasks.map(t => t.id));
+                        completedTaskIds = new Set([...completedTaskIds].filter(id => currentIds.has(id)));
+                        
                         render();
                     }
                 });
@@ -343,47 +407,50 @@ export class TaskManagementPanel {
                         
                         if (!isCollapsed) {
                             groups[groupName].forEach(task => {
+                                const isCompleted = completedTaskIds.has(task.id);
                                 const isHighPrio = task.prio > 5;
                                 const isMedPrio = task.prio > 0 && task.prio <= 5;
                                 const isLowPrio = task.prio < 0;
                                 const prioClass = isHighPrio ? 'prio-high' : (isMedPrio ? 'prio-med' : (isLowPrio ? 'prio-low' : 'prio-neutral'));
                                 
+                                const snoozeInfo = task.snoozeDate ? \`<span class="text-xs text-purple-400 ml-2 border border-purple-400 rounded px-1">Until \${task.snoozeDate}</span>\` : '';
+
                                 html += \`
-                                    <div class="task-row grid grid-cols-[1fr_auto] gap-4 p-2 items-center rounded group \${prioClass}" data-id="\${task.id}">
+                                    <div class="task-row grid grid-cols-[1fr_auto] gap-4 p-2 items-center rounded group \${prioClass} \${isCompleted ? 'completed-task' : ''}" data-id="\${task.id}">
                                         <div class="flex flex-col gap-1 min-w-0 cursor-pointer" onclick="openTask('\${task.id}')">
                                             <div class="flex items-center gap-2">
                                                 <span class="font-mono text-xs opacity-50 select-none" title="Priority: \${task.prio.toFixed(1)}">[\${task.prio.toFixed(0)}]</span>
                                                 <span class="truncate hover:underline font-medium">\${escapeHtml(task.taskWithoutState)}</span>
+                                                \${snoozeInfo}
                                             </div>
                                             <div class="text-xs opacity-50 truncate pl-8">\${task.location.filePath.split(/[\\\\/]/).pop()}</div>
                                         </div>
                                         
                                         <div class="action-group flex items-center gap-2">
-                                            <select onchange="changeCategory('\${task.id}', this.value)" class="text-xs p-1 rounded max-w-[100px] opacity-90 hover:opacity-100" title="Change Category">
+                                            <select onchange="changeCategory('\${task.id}', this.value)" class="text-xs p-1 rounded max-w-[100px] opacity-90 hover:opacity-100" title="Change Category" \${isCompleted ? 'disabled' : ''}>
                                                 <option value="" disabled selected>Move</option>
                                                 \${allCategories.map(c => \`<option value="\${c}">\${c}</option>\`).join('')}
                                                 <option value="Inbox">Inbox</option>
-                                                <option value="__NEW__">+ New</option>
                                             </select>
 
                                             <div class="flex items-center bg-[var(--vscode-textBlockQuote-background)] rounded overflow-hidden border border-[var(--vscode-panel-border)]">
-                                                <button class="btn-icon text-[10px] text-blue-400 hover:text-blue-300" onclick="changePrio('\${task.id}', -10)" title="-10 Prio">--</button>
-                                                <button class="btn-icon text-[10px] text-blue-400 hover:text-blue-300" onclick="changePrio('\${task.id}', -5)" title="-5 Prio">-</button>
-                                                <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="setPrio('\${task.id}', 0)" title="Reset Prio">0</button>
-                                                <button class="btn-icon text-[10px] text-red-400 hover:text-red-300" onclick="changePrio('\${task.id}', 5)" title="+5 Prio">+</button>
-                                                <button class="btn-icon text-[10px] text-red-400 hover:text-red-300" onclick="changePrio('\${task.id}', 10)" title="+10 Prio">++</button>
+                                                <button class="btn-icon text-[10px] text-blue-400 hover:text-blue-300" onclick="changePrio('\${task.id}', -1)" title="-1 Prio" \${isCompleted ? 'disabled' : ''}>-</button>
+                                                <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="setPrio('\${task.id}', 0)" title="Reset Prio" \${isCompleted ? 'disabled' : ''}>0</button>
+                                                <button class="btn-icon text-[10px] text-red-400 hover:text-red-300" onclick="changePrio('\${task.id}', 1)" title="+1 Prio" \${isCompleted ? 'disabled' : ''}>+</button>
                                             </div>
 
                                             <div class="flex items-center bg-[var(--vscode-textBlockQuote-background)] rounded overflow-hidden border border-[var(--vscode-panel-border)] ml-1">
-                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 1)" title="1 Day">1d</button>
-                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 5)" title="5 Days">5d</button>
-                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 7)" title="1 Week">7d</button>
-                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 30)" title="1 Month">30d</button>
-                                                <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="snooze('\${task.id}', 0)" title="Reset">R</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 1)" title="1 Day" \${isCompleted ? 'disabled' : ''}>1d</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 5)" title="5 Days" \${isCompleted ? 'disabled' : ''}>5d</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 7)" title="1 Week" \${isCompleted ? 'disabled' : ''}>7d</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 30)" title="1 Month" \${isCompleted ? 'disabled' : ''}>30d</button>
+                                                <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="snooze('\${task.id}', 0)" title="Reset" \${isCompleted ? 'disabled' : ''}>R</button>
                                             </div>
 
-                                            <button class="ml-2 bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs font-bold shadow-sm" onclick="complete('\${task.id}')">
-                                                ✓
+                                            <button class="\${isCompleted ? 'bg-gray-500 hover:bg-gray-600' : 'bg-green-600 hover:bg-green-500'} text-white px-3 py-1 rounded text-xs font-bold shadow-sm ml-2 w-8" 
+                                                onclick="\${isCompleted ? \`undoComplete('\${task.id}')\` : \`complete('\${task.id}')\`}"
+                                                title="\${isCompleted ? 'Undo Complete' : 'Complete Task'}">
+                                                \${isCompleted ? '↩' : '✓'}
                                             </button>
                                         </div>
                                     </div>
@@ -408,9 +475,6 @@ export class TaskManagementPanel {
                 }
 
                 function changeCategory(id, newCat) {
-                    if (newCat === '__NEW__') {
-                        return;
-                    }
                     vscode.postMessage({ type: 'changeCategory', taskId: id, newCategory: newCat });
                 }
 
@@ -427,12 +491,15 @@ export class TaskManagementPanel {
                 }
 
                 function complete(id) {
-                    const row = document.querySelector(\`div[data-id="\${id}"]\`);
-                    if (row) {
-                        row.style.opacity = '0.3';
-                        row.style.pointerEvents = 'none';
-                    }
+                    completedTaskIds.add(id);
+                    render();
                     vscode.postMessage({ type: 'complete', taskId: id });
+                }
+
+                function undoComplete(id) {
+                    completedTaskIds.delete(id);
+                    render();
+                    vscode.postMessage({ type: 'undoComplete', taskId: id });
                 }
 
                 vscode.postMessage({ type: 'refresh' });
