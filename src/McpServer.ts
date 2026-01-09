@@ -1,5 +1,12 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+// Use z from the SDK if available, or just rely on runtime validation.
+// The MCP SDK exports z as part of its types usually, or we need to ensure versions match.
+// For now, let's try to not use zod directly in the registerTool inputSchema if possible, or cast it.
+// Actually, the issue is likely due to strict checking of the inputSchema type.
+// The MCP SDK expects a specific Zod version or a JSON Schema.
+// Let's try to import z from zod and cast the schema to any to bypass the deep type check error,
+// while keeping the runtime behavior correct.
 import { z } from "zod";
 import * as http from "http";
 import * as crypto from "crypto";
@@ -130,15 +137,18 @@ Your goal is to help users find, understand, and synthesize information from the
         }
     );
 
+    // Cast the schema object to any to avoid "excessively deep type instantiation" errors
+    // caused by mismatched Zod versions or complex type inference in the MCP SDK.
     mcpServer.registerTool(
         "search_notes",
         {
             description: "Search for notes by content, title, or tags",
             inputSchema: {
                 query: z.string()
-            }
+            } as any
         },
-        async ({ query }) => {
+        async (args: any) => {
+            const { query } = args;
             log(`Tool called: search_notes with query "${query}"`);
             if (!isIndexReady()) {
                 return { content: [{ type: "text", text: "Index not ready" }] };
@@ -178,9 +188,10 @@ Your goal is to help users find, understand, and synthesize information from the
                     query: z.string(),
                     limit: z.number().optional(),
                     offset: z.number().optional()
-                }
+                } as any
             },
-            async ({ query, limit, offset }: { query: string; limit?: number; offset?: number }) => {
+            async (args: any) => {
+                const { query, limit, offset } = args;
                 log(`Tool called: semantic_search with query "${query}"`);
                 if (!semanticSearch) return { content: [{ type: "text", text: "Semantic search not configured" }] };
                 const results = await semanticSearch.search(query, limit || 50, offset || 0);
@@ -207,9 +218,10 @@ Your goal is to help users find, understand, and synthesize information from the
             description: "Read the content of a note by its name (link name)",
             inputSchema: {
                 name: z.string()
-            }
+            } as any
         },
-        async ({ name }) => {
+        async (args: any) => {
+            const { name } = args;
             log(`Tool called: read_note for "${name}"`);
             if (!isIndexReady()) {
                 return { content: [{ type: "text", text: "Index not ready" }] };
@@ -253,9 +265,10 @@ Your goal is to help users find, understand, and synthesize information from the
             description: "Get tasks, optionally filtered by status (TODO, DOING, DONE)",
             inputSchema: {
                 status: z.enum(["TODO", "DOING", "DONE"]).optional()
-            }
+            } as any
         },
-        async ({ status }: { status?: "TODO" | "DOING" | "DONE" }) => {
+        async (args: any) => {
+            const { status } = args;
             log(`Tool called: get_tasks with status "${status}"`);
             if (!isIndexReady()) {
                 return { content: [{ type: "text", text: "Index not ready" }] };
