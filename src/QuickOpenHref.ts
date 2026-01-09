@@ -4,6 +4,7 @@ import { getLastEdit } from './LastEditHandler';
 import { Link } from './Link';
 import { ScoringUtils } from './ScoringUtils';
 import { sharedIndex2 } from './Index2';
+import { sharedLinkShortener } from './HrefShortener';
 
 class LinkItem implements QuickPickItem {
   label: string;
@@ -13,7 +14,7 @@ class LinkItem implements QuickPickItem {
   constructor(link: Link, href: string) {
     this.label = link.linkName();
     this.link = link;
-    this.description = href;
+    this.description = sharedLinkShortener().getHref(href) || href;
   }
 }
 
