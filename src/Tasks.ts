@@ -244,11 +244,20 @@ export const changeCategory = async (task: Task, newCategory: string) => {
     let newText = line.text;
     
     const currentGroup = task.parseGroup();
-    if (currentGroup) {
-        newText = newText.replace(`/${currentGroup}`, `/${newCategory}`);
+    
+    if (newCategory === 'Inbox' || newCategory === '') {
+        // Remove category
+        if (currentGroup) {
+            newText = newText.replace(`/${currentGroup}`, ``);
+        }
     } else {
-        // Insert category after TODO/DOING
-        newText = newText.replace(/- (TODO|DOING)/, `- $1/${newCategory}`);
+        // Add or change category
+        if (currentGroup) {
+            newText = newText.replace(`/${currentGroup}`, `/${newCategory}`);
+        } else {
+            // Insert category after TODO/DOING
+            newText = newText.replace(/- (TODO|DOING)/, `- $1/${newCategory}`);
+        }
     }
     
     edit.replace(document.uri, line.range, newText);

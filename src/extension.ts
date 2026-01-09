@@ -22,6 +22,7 @@ import { activateInsertDocument } from './InsertDocument';
 import { activateAutoTagging } from './AutoTagging';
 import { startMcpServer } from './McpServer';
 import { activateShortLinkProvider } from './ShortLinkProvider';
+import { activateTaskManagement } from './TaskManagement';
 
 
 let hasActivatedFeatures = false;
@@ -86,6 +87,7 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   activateInsertDocument(context);
   registerMarkdownInlineUrlFold(context);
   activateShortLinkProvider(context);
+  activateTaskManagement(context);
 
   startMcpServer(context);
 
@@ -95,7 +97,7 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   const hashtagNodeProvider = new HashTagProvider();
   vscode.window.registerTreeDataProvider('pageHashtags', hashtagNodeProvider);
 
-  const taskProvider = activateTasks();
+  const taskProvider = activateTasks(context);
 
   activateCommands(context, () => {
     backlinkProvider.refresh();
