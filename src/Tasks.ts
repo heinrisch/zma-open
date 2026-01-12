@@ -6,13 +6,20 @@ import { RegexPatterns } from './RegexPatterns';
 import { TaskWebviewProvider } from './TaskWebview';
 import { regexMatches, sharedIndex2 } from './Index2';
 import { Location } from './LinkLocation';
+import { TaskProvider } from './TaskExplorer';
 
-export const activateTasks = (context: vscode.ExtensionContext): TaskWebviewProvider => {
+export const activateTaskManagementWebView = (context: vscode.ExtensionContext): TaskWebviewProvider => {
   const provider = new TaskWebviewProvider(context.extensionUri);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider('tasks', provider)
   );
   return provider;
+};
+
+export const activateTaskExplorer = (context: vscode.ExtensionContext): TaskProvider => {
+  const tasksNodeProvider = new TaskProvider();
+  vscode.window.registerTreeDataProvider('tasks', tasksNodeProvider);
+  return tasksNodeProvider;
 };
 
 export enum TaskState {

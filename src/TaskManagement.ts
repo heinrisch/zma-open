@@ -46,9 +46,9 @@ export class TaskManagementPanel {
                         this.refresh();
                         break;
                     case 'setPriority':
-                         prioTask(message.taskId, 0);
-                         this.refresh();
-                         break;
+                        prioTask(message.taskId, 0);
+                        this.refresh();
+                        break;
                     case 'complete':
                         await this.handleComplete(message.taskId);
                         break;
@@ -56,8 +56,8 @@ export class TaskManagementPanel {
                         await this.handleUndoComplete(message.taskId);
                         break;
                     case 'openTask':
-                         this.handleOpenTask(message.taskId);
-                         break;
+                        this.handleOpenTask(message.taskId);
+                        break;
                 }
             },
             null,
@@ -106,7 +106,7 @@ export class TaskManagementPanel {
         const categories = this._getAllCategories(tasks);
         this._panel.webview.postMessage({ type: 'update', tasks, categories });
     }
-    
+
     private _getAllCategories(tasks: any[]): string[] {
         const categories = new Set<string>();
         tasks.forEach(t => {
@@ -135,7 +135,7 @@ export class TaskManagementPanel {
         allTasks.sort((a, b) => b.prio() - a.prio());
 
         return allTasks.map(task => {
-            const { getTaskData } = require('./Tasks'); 
+            const { getTaskData } = require('./Tasks');
             const td = getTaskData(task.id);
             const snoozeDate = td.getSnoozeUntil();
             const now = new Date();
@@ -186,16 +186,16 @@ export class TaskManagementPanel {
             await vscode.workspace.applyEdit(edit);
         }
     }
-    
+
     private handleOpenTask(taskId: string) {
-         const task = this.getTaskById(taskId);
-         if (task) {
-             vscode.workspace.openTextDocument(task.location.link.filePath()).then(doc => {
-                 vscode.window.showTextDocument(doc, {
-                     selection: new vscode.Range(task.location.row, 0, task.location.row, 0)
-                 });
-             });
-         }
+        const task = this.getTaskById(taskId);
+        if (task) {
+            vscode.workspace.openTextDocument(task.location.link.filePath()).then(doc => {
+                vscode.window.showTextDocument(doc, {
+                    selection: new vscode.Range(task.location.row, 0, task.location.row, 0)
+                });
+            });
+        }
     }
 
     private getTaskById(taskId: string): Task | undefined {

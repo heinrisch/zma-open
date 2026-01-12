@@ -13,7 +13,6 @@ import { HashTagProvider } from './HashtagExplorer';
 import { TextDocumentContentChangeEvent } from 'vscode';
 import { activateDocumentSymbolProvider } from './SymbolProvidor';
 import { activateTodayIndicator } from './TodayIndicator';
-import { activateTasks } from './Tasks';
 import { processMdFile, reindex2, sharedIndex2 } from './Index2';
 import { activateCliActions } from './CliAction';
 import { activateLlmActions } from './LlmActions';
@@ -23,6 +22,7 @@ import { activateAutoTagging } from './AutoTagging';
 import { startMcpServer } from './McpServer';
 import { activateShortLinkProvider } from './ShortLinkProvider';
 import { activateTaskManagement } from './TaskManagement';
+import { activateTaskExplorer, activateTaskManagementWebView } from './Tasks';
 
 
 let hasActivatedFeatures = false;
@@ -97,12 +97,14 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   const hashtagNodeProvider = new HashTagProvider();
   vscode.window.registerTreeDataProvider('pageHashtags', hashtagNodeProvider);
 
-  const taskProvider = activateTasks(context);
+  const taskExplorerProvider = activateTaskExplorer(context);
+  const taskManagementProvider = activateTaskManagementWebView(context);
 
   activateCommands(context, () => {
     backlinkProvider.refresh();
     hashtagNodeProvider.refresh();
-    taskProvider.refresh();
+    taskExplorerProvider.refresh();
+    taskManagementProvider.refresh();
   });
 
   context.subscriptions.push(
@@ -134,7 +136,8 @@ async function activateFeatures(context: vscode.ExtensionContext) {
 
     backlinkProvider.refresh();
     hashtagNodeProvider.refresh();
-    taskProvider.refresh();
+    taskExplorerProvider.refresh();
+    taskManagementProvider.refresh();
   });
 }
 
