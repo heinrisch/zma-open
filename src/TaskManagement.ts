@@ -431,7 +431,7 @@ export class TaskManagementPanel {
 
                                             <div class="flex items-center bg-[var(--vscode-textBlockQuote-background)] rounded overflow-hidden border border-[var(--vscode-panel-border)] ml-1">
                                                 <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 1)" title="1 Day" \${isCompleted ? 'disabled' : ''}>1d</button>
-                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 5)" title="5 Days" \${isCompleted ? 'disabled' : ''}>5d</button>
+                                                <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', getDaysUntilWeekend())" title="Until Weekend" \${isCompleted ? 'disabled' : ''}>WE</button>
                                                 <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 7)" title="1 Week" \${isCompleted ? 'disabled' : ''}>7d</button>
                                                 <button class="btn-icon text-[10px] text-purple-400 hover:text-purple-300" onclick="snooze('\${task.id}', 30)" title="1 Month" \${isCompleted ? 'disabled' : ''}>30d</button>
                                                 <button class="btn-icon text-[10px] opacity-50 hover:opacity-100" onclick="snooze('\${task.id}', 0)" title="Reset" \${isCompleted ? 'disabled' : ''}>R</button>
@@ -517,6 +517,16 @@ export class TaskManagementPanel {
                     completedTaskIds.delete(id);
                     render();
                     vscode.postMessage({ type: 'undoComplete', taskId: id });
+                }
+
+                function getDaysUntilWeekend() {
+                    const today = new Date().getDay();
+                    const saturday = 6;
+                    let days = saturday - today;
+                    if (days <= 0) {
+                        days += 7;
+                    }
+                    return days;
                 }
 
                 vscode.postMessage({ type: 'refresh' });
