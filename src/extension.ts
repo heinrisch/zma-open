@@ -23,6 +23,8 @@ import { startMcpServer } from './McpServer';
 import { activateShortLinkProvider } from './ShortLinkProvider';
 import { activateTaskManagement, TaskManagementPanel } from './TaskManagement';
 import { activateTaskExplorer, activateTaskManagementWebView } from './Tasks';
+import { activateReferencesDocumentProvider } from './ReferencesDocumentProvider';
+
 
 
 let hasActivatedFeatures = false;
@@ -88,6 +90,8 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   registerMarkdownInlineUrlFold(context);
   activateShortLinkProvider(context);
   activateTaskManagement(context);
+  activateReferencesDocumentProvider(context);
+
 
   startMcpServer(context);
 

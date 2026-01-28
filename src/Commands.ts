@@ -49,7 +49,18 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
       }
 
       await vscode.workspace.openTextDocument(todayLink.filePath()).then(async (document) => {
-        await vscode.window.showTextDocument(document);
+        await vscode.window.showTextDocument(document, { viewColumn: vscode.ViewColumn.One });
+
+        // Open references in split view
+        if (!fileExists) {
+          const refsUri = vscode.Uri.parse(`zma-references:${todayString}`);
+          const doc = await vscode.workspace.openTextDocument(refsUri);
+          await vscode.window.showTextDocument(doc, {
+            viewColumn: vscode.ViewColumn.Two,
+            preserveFocus: true,
+            preview: true
+          });
+        }
       });
     })
   );
