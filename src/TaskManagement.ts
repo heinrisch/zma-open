@@ -39,15 +39,15 @@ export class TaskManagementPanel {
                         } else {
                             snoozeTask(message.taskId, message.days);
                         }
-                        this.refresh();
+
                         break;
                     case 'changePriority':
                         prioTask(message.taskId, message.delta);
-                        this.refresh();
+
                         break;
                     case 'setPriority':
                         prioTask(message.taskId, 0);
-                        this.refresh();
+
                         break;
                     case 'complete':
                         await this.handleComplete(message.taskId);
@@ -101,7 +101,7 @@ export class TaskManagementPanel {
         }
     }
 
-    private refresh() {
+    public refresh() {
         const tasks = this._getAllTasks();
         const categories = this._getAllCategories(tasks);
         this._panel.webview.postMessage({ type: 'update', tasks, categories });
@@ -468,15 +468,42 @@ export class TaskManagementPanel {
                     vscode.postMessage({ type: 'changeCategory', taskId: id, newCategory: newCat });
                 }
 
+                function updateTaskInList(taskId, updater) {
+                    const taskIndex = allTasks.findIndex(t => t.id === taskId);
+                    if (taskIndex !== -1) {
+                        const task = allTasks[taskIndex];
+                        updater(task);
+                        render();
+                    }
+                }
+
                 function changePrio(id, delta) {
+                    updateTaskInList(id, (task) => {
+                        task.prio += delta;
+                    });
                     vscode.postMessage({ type: 'changePriority', taskId: id, delta: delta });
                 }
                 
                 function setPrio(id, val) {
+                    updateTaskInList(id, (task) => {
+                        task.prio = val;
+                    });
                     vscode.postMessage({ type: 'setPriority', taskId: id });
                 }
 
                 function snooze(id, days) {
+                    updateTaskInList(id, (task) => {
+                        if (days === 0) {
+                            task.snoozeDate = '';
+                        } else {
+                            const now = new Date();
+                            const current = task.snoozeDate ? new Date(task.snoozeDate) : now;
+                            const start = now > current ? now : current;
+                            const future = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+                            future.setHours(0, 0, 0, 0);
+                            task.snoozeDate = future.toISOString().split('T')[0];
+                        }
+                    });
                     vscode.postMessage({ type: 'snooze', taskId: id, days: days });
                 }
 

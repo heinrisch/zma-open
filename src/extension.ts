@@ -21,7 +21,7 @@ import { activateInsertDocument } from './InsertDocument';
 import { activateAutoTagging } from './AutoTagging';
 import { startMcpServer } from './McpServer';
 import { activateShortLinkProvider } from './ShortLinkProvider';
-import { activateTaskManagement } from './TaskManagement';
+import { activateTaskManagement, TaskManagementPanel } from './TaskManagement';
 import { activateTaskExplorer, activateTaskManagementWebView } from './Tasks';
 
 
@@ -138,6 +138,7 @@ async function activateFeatures(context: vscode.ExtensionContext) {
     hashtagNodeProvider.refresh();
     taskExplorerProvider.refresh();
     taskManagementProvider.refresh();
+    TaskManagementPanel.currentPanel?.refresh();
   });
 }
 
