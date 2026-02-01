@@ -24,6 +24,7 @@ import { activateShortLinkProvider } from './ShortLinkProvider';
 import { activateTaskManagement, TaskManagementPanel } from './TaskManagement';
 import { activateTaskExplorer, activateTaskManagementWebView } from './Tasks';
 import { activateReferencesDocumentProvider } from './ReferencesDocumentProvider';
+import { activateRenameProvider } from './RenameProvider';
 
 
 
@@ -80,6 +81,7 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   activateCodeFormatter(context);
   activateDefinitionProvider(context);
   activateReferenceProvider(context);
+  activateRenameProvider(context);
   activateDecorator(context);
   activateDocumentSymbolProvider(context);
   activateTodayIndicator();
