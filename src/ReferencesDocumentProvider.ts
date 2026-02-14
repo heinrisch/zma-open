@@ -32,20 +32,22 @@ export class ReferencesDocumentProvider implements vscode.TextDocumentContentPro
         if (link.isDate()) {
             const date = link.getDate();
             if (date) {
-                // Calculate yesterday
-                const yesterday = new Date(date);
-                yesterday.setDate(date.getDate() - 1);
+                // Look backwards up to 31 days to find the most recent daily note
+                for (let daysBack = 1; daysBack <= 31; daysBack++) {
+                    const previousDay = new Date(date);
+                    previousDay.setDate(date.getDate() - daysBack);
 
-                // Format YYYY-MM-DD
-                const yesterdayString = yesterday.toISOString().slice(0, 10);
-                const yesterdayLink = Link.fromRawLink(yesterdayString);
+                    const previousDayString = previousDay.toISOString().slice(0, 10);
+                    const previousDayLink = Link.fromRawLink(previousDayString);
 
-                if (yesterdayLink.fileExists()) {
-                    const summary = await this.getSummaryForFile(yesterdayLink);
-                    if (summary) {
-                        markdown += `## Summary of [[${yesterdayString}]]\n\n`;
-                        markdown += `${summary}\n\n`;
-                        markdown += `---\n\n`;
+                    if (previousDayLink.fileExists()) {
+                        const summary = await this.getSummaryForFile(previousDayLink);
+                        if (summary) {
+                            markdown += `## Summary of [[${previousDayString}]]\n\n`;
+                            markdown += `${summary}\n\n`;
+                            markdown += `---\n\n`;
+                        }
+                        break; // Stop at the first found daily note
                     }
                 }
             }
