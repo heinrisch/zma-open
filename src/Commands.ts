@@ -32,20 +32,13 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
 
       const fileExists = fs.existsSync(todayLink.filePath());
       if (!fileExists) {
-        const weather = await fetch('https://wttr.in/?format=3', { method: 'GET' })
-          .then((response) => response.text())
-          .catch((e) => {
-            console.error(e);
-            return 'failed to fetch weather';
-          });
-
         const today_time = new Date().toLocaleTimeString('en-US', {
           hour: '2-digit',
           minute: '2-digit',
           hour12: false
         });
         const day_time = new Date().toLocaleString("en", { weekday: "long" });
-        fs.writeFileSync(todayLink.filePath(), `# ${todayString} ${today_time} ${day_time}\n# ${weather}\n\n# Meeting Notes\n\n`);
+        fs.writeFileSync(todayLink.filePath(), `# ${todayString} ${today_time} ${day_time}\n\n# Meeting Notes\n\n`);
       }
 
       await vscode.workspace.openTextDocument(todayLink.filePath()).then(async (document) => {
