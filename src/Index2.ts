@@ -8,9 +8,8 @@ import { Stopwatch } from './Stopwatch';
 import { findAndCreateTasks, Task, TaskState } from './Tasks';
 import { escapeRegExp } from './Util';
 import { readLastEditIndexFromFile } from './LastEditHandler';
-import { readTagIndexFromFile, getTagsForLink, setTagsForLink, removeTagsForLink } from './TagHandler';
-import { link } from 'fs';
-import { LinkShortener, sharedLinkShortener } from './HrefShortener';
+import { readTagIndexFromFile, getTagsForLink, removeTagsForLink } from './TagHandler';
+import {  sharedLinkShortener } from './HrefShortener';
 
 export class ZmaFile {
   constructor(
