@@ -220,6 +220,13 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
     })
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('zma.mcp.restart', async () => {
+      await stopMcpServer();
+      await startMcpServerManual(context);
+    })
+  );
+
 };
 
 export function cleanLinkTitle(input: string): string {

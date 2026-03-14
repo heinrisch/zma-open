@@ -154,6 +154,10 @@
         "title": "ZMA: Stop MCP Server"
       },
       {
+        "command": "zma.mcp.restart",
+        "title": "ZMA: Restart MCP Server"
+      },
+      {
         "command": "zma.openTaskManagement",
         "title": "ZMA: Open Task Management"
       }
