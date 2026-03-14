@@ -3,9 +3,9 @@
   "publisher": "heinrisch",
   "displayName": "zma",
   "description": "Next level notes",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "engines": {
-    "vscode": "^1.105.0"
+    "vscode": "^1.111.0"
   },
   "categories": [
     "Other"
@@ -315,7 +315,6 @@
     "@types/node": "25.5.*",
     "@types/vscode": "^1.110.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
-
     "@typescript-eslint/parser": "^7.18.0",
     "autoprefixer": "^10.4.27",
     "css-loader": "^7.1.4",
