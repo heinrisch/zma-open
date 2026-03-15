@@ -227,6 +227,34 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
     })
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('zma.stats', async () => {
+      const stats = sharedIndex2().getStats();
+      const outputChannel = vscode.window.createOutputChannel('ZMA Stats');
+      outputChannel.clear();
+      outputChannel.appendLine('=== ZMA Index Statistics ===');
+      outputChannel.appendLine(`Total Files: ${stats.totalFiles}`);
+      outputChannel.appendLine(`Total Explicit Links: ${stats.totalExplicitLinks}`);
+      outputChannel.appendLine(`Total Unlinked Matches: ${stats.totalUnlinkedMatches}`);
+      outputChannel.appendLine('');
+      outputChannel.appendLine('--- Memory Usage ---');
+      outputChannel.appendLine(`Heap Used: ${stats.memory.heapUsed} MB`);
+      outputChannel.appendLine(`Heap Total: ${stats.memory.heapTotal} MB`);
+      outputChannel.appendLine(`RSS: ${stats.memory.rss} MB`);
+      outputChannel.appendLine('');
+      outputChannel.appendLine('--- Top 10 Links with Most Unlinked Matches ---');
+      stats.topUnlinked.forEach(([name, count], i) => {
+        outputChannel.appendLine(`${i + 1}. [[${name}]]: ${count} matches`);
+      });
+      outputChannel.appendLine('');
+      outputChannel.appendLine('--- Top 10 Files with Most Links ---');
+      stats.topFilesByLinks.forEach(([name, count], i) => {
+        outputChannel.appendLine(`${i + 1}. ${name}: ${count} links`);
+      });
+      outputChannel.appendLine('============================');
+      outputChannel.show();
+    })
+  );
 };
 
 export function cleanLinkTitle(input: string): string {

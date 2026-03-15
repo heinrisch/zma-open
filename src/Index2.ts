@@ -155,6 +155,52 @@ export class Index2 {
     this._allActiveTasks = null;
     this._urlForLinkRaw = null;
   }
+
+  public getStats() {
+    const files = this.allFiles();
+    const linkLocations = this.linkLocations();
+
+    const totalFiles = files.length;
+    const totalExplicitLinks = linkLocations.filter(ll => ll.type === LinkType.LINK).length;
+    const totalUnlinkedMatches = linkLocations.filter(ll => ll.type === LinkType.UNLINKED).length;
+
+    // Group unlinked matches by target link
+    const unlinkedCountMap = new Map<string, number>();
+    linkLocations.filter(ll => ll.type === LinkType.UNLINKED).forEach(ll => {
+      const name = ll.link.linkName();
+      unlinkedCountMap.set(name, (unlinkedCountMap.get(name) || 0) + 1);
+    });
+
+    const topUnlinked = Array.from(unlinkedCountMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+
+    // Group explicit links by source file
+    const fileLinkCountMap = new Map<string, number>();
+    linkLocations.filter(ll => ll.type === LinkType.LINK).forEach(ll => {
+      const name = ll.location.link.linkName();
+      fileLinkCountMap.set(name, (fileLinkCountMap.get(name) || 0) + 1);
+    });
+
+    const topFilesByLinks = Array.from(fileLinkCountMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+
+    const memoryUsage = process.memoryUsage();
+
+    return {
+      totalFiles,
+      totalExplicitLinks,
+      totalUnlinkedMatches,
+      topUnlinked,
+      topFilesByLinks,
+      memory: {
+        heapUsed: (memoryUsage.heapUsed / 1024 / 1024).toFixed(2),
+        heapTotal: (memoryUsage.heapTotal / 1024 / 1024).toFixed(2),
+        rss: (memoryUsage.rss / 1024 / 1024).toFixed(2)
+      }
+    };
+  }
 }
 
 export function workspaceFolderPath(): string | undefined {

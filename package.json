@@ -160,6 +160,10 @@
       {
         "command": "zma.openTaskManagement",
         "title": "ZMA: Open Task Management"
+      },
+      {
+        "command": "zma.stats",
+        "title": "ZMA: Stats"
       }
     ],
     "menus": {
