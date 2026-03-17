@@ -1,6 +1,6 @@
 # ZMA - Markdown Note Taking in VS Code
 
-ZMA is a VS Code extension for note-taking with Markdown. It integrates advanced features directly into your Markdown files, assisting with organization, navigation, task management, and AI integration via the Model Context Protocol (MCP).
+ZMA is a VS Code extension for note-taking with Markdown. It integrates advanced features directly into your Markdown files, assisting with organization, navigation, task management, and AI integration.
 
 ![ZMA Screenshot](images/screenshot.png)
 
@@ -9,7 +9,6 @@ ZMA is a VS Code extension for note-taking with Markdown. It integrates advanced
 *   **Markdown Integration**: Supports standard Markdown format within VS Code.
 *   **Wiki-Style Linking**: Connect notes using `[[wiki-style links]]`. "Go to Definition" functionality allows navigation between linked notes.
 *   **Automatic URL Conversion**: Pasting a URL automatically fetches the page title and converts it to `[Title](URL)`.
-*   **Model Context Protocol (MCP)**: Built-in MCP server to expose your notes and tasks to AI assistants (like Claude or other MCP clients).
 *   **TODO Support**: Manage tasks within notes. Commands are available to snooze, reset snooze, and adjust task priority.
 *   **Navigation**:
     *   **Backlinks Explorer**: Displays notes that link to the current file.
@@ -45,10 +44,8 @@ Commands can be accessed via the VS Code Command Palette (`Ctrl+Shift+P` or `Cmd
 *   **ZMA: Run Cli Action** (`zma.runCliAction`): Executes a predefined ZMA command-line interface action.
 *   **ZMA: Add Tags to Current Link** (`zma.addTagsToCurrentLink`): Adds tags to the currently selected link.
 
-### AI & MCP Commands
+### AI Commands
 
-*   **ZMA: Start MCP Server** (`zma.mcp.start`): Starts the Model Context Protocol server.
-*   **ZMA: Stop MCP Server** (`zma.mcp.stop`): Stops the Model Context Protocol server.
 *   **ZMA: Run LLM Action** (`zma.runLlmAction`): Executes a predefined LLM action.
 *   **ZMA: Auto Tag Link (LLM)** (`zma.autoTagLink`): Uses LLM to generate tags for a link.
 *   **ZMA: Auto Tag Next Untagged Link** (`zma.autoTagNextUntagged`): Finds the next untagged link and auto-tags it.

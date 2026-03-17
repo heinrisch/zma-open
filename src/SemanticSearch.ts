@@ -372,8 +372,7 @@ export function loadEmbeddingConfig(): EmbeddingConfig | null {
     }
     const configPath = path.join(folder, 'embedding-config.json');
     if (!fs.existsSync(configPath)) {
-        // Create default if not exists, though McpServer might handle this too or we just return null
-        // The user asked to create a similar config.
+        // Create default if not exists
         const defaultConfig: EmbeddingConfig = {
             baseUrl: "http://localhost:11434",
             model: "nomic-embed-text",

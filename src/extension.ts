@@ -19,7 +19,6 @@ import { activateLlmActions } from './LlmActions';
 import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
 import { activateInsertDocument } from './InsertDocument';
 import { activateAutoTagging } from './AutoTagging';
-import { startMcpServer } from './McpServer';
 import { activateShortLinkProvider } from './ShortLinkProvider';
 import { activateTaskManagement, TaskManagementPanel } from './TaskManagement';
 import { activateTaskExplorer, activateTaskManagementWebView } from './Tasks';
@@ -94,8 +93,6 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   activateTaskManagement(context);
   activateReferencesDocumentProvider(context);
 
-
-  startMcpServer(context);
 
   const backlinkProvider = new BacklinkProvider();
   vscode.window.registerTreeDataProvider('pageBacklinks', backlinkProvider);
