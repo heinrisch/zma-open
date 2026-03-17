@@ -129,7 +129,7 @@ export const getTaskData = (taskId: string): TaskData => {
     }
   }
 
-  let result = taskDatas.filter((ss) => ss.taskId === taskId);
+  const result = taskDatas.filter((ss) => ss.taskId === taskId);
   if (result.length > 0) {
     return result[0];
   }

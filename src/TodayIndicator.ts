@@ -11,13 +11,13 @@ function getTodayFileName() {
 }
 
 export function activateTodayIndicator() {
-  let statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, -10000);
+  const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, -10000);
   statusBarItem.text = `Today?`; // Customize this text as needed
   statusBarItem.tooltip = `You are on the file for today`;
 
   function isTodayFile(editor: vscode.TextEditor): boolean {
-    let currentFile = editor.document.fileName.split('/').slice(-1)[0];
-    let today = getTodayFileName(); // Some function to get today's file
+    const currentFile = editor.document.fileName.split('/').slice(-1)[0];
+    const today = getTodayFileName(); // Some function to get today's file
     return today === currentFile;
   }
 
@@ -47,7 +47,7 @@ export function activateTodayIndicator() {
   }
 
   vscode.workspace.onDidChangeTextDocument(() => {
-    let editor = vscode.window.activeTextEditor;
+    const editor = vscode.window.activeTextEditor;
     if (editor) {
       if (!isTodayFile(editor)) {
         flashEffect();

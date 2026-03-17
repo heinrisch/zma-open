@@ -105,10 +105,10 @@ export class ReferencesDocumentProvider implements vscode.TextDocumentContentPro
     private async getSummaryForFile(link: Link): Promise<string | null> {
         try {
             const content = link.fileContent();
-            if (!content) return null;
+            if (!content) { return null; }
 
             const config = loadLlmConfig();
-            if (!config) return null; // No LLM configured
+            if (!config) { return null; } // No LLM configured
 
             // Define a simple summary action on the fly or reuse one
             const action: LlmAction = {

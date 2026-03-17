@@ -167,7 +167,7 @@ async function insertDocumentIntoWorkspace(
         let linkText = `[${link.linkName()}](${insertData.url})`;
 
         if (insertData.url === null || insertData.url.trim().length === 0) {
-            linkText = `[[${link.linkName()}]]`
+            linkText = `[[${link.linkName()}]]`;
         }
         
         const position = editor.selection.active;

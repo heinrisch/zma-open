@@ -213,7 +213,7 @@ class MarkdownDocumentFormatter implements vscode.DocumentFormattingEditProvider
     // First pass: calculate expected indents
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (!/^\s*-\s/.test(line)) continue; // Not a bullet
+      if (!/^\s*-\s/.test(line)) { continue; } // Not a bullet
 
       const rawIndent = (line.match(/^\s*/) || [''])[0].length;
       let expected = 0;
@@ -236,7 +236,7 @@ class MarkdownDocumentFormatter implements vscode.DocumentFormattingEditProvider
     // Second pass: apply indentation changes
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (!/^\s*-\s/.test(line)) continue; // Not a bullet
+      if (!/^\s*-\s/.test(line)) { continue; } // Not a bullet
 
       const rawIndent = (line.match(/^\s*/) || [''])[0].length;
       const expected = expectedIndents[i];
@@ -359,7 +359,7 @@ class MarkdownDocumentFormatter implements vscode.DocumentFormattingEditProvider
     for (const match of searchText.matchAll(regex)) {
       const text = match[0];
       const matchIndex = match.index;
-      if (matchIndex === undefined) continue;
+      if (matchIndex === undefined) { continue; }
 
       const start = matchIndex + offset;
       const end = start + text.length;

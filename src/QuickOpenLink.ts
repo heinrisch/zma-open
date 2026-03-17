@@ -60,7 +60,7 @@ export async function quickPickRawLink(onlyAutoSelect: boolean): Promise<string 
           const allLinks = sharedIndex2().allLink();
           const linksScored: [Link, number][] = allLinks.map((link) => [link, ScoringUtils.scoreSearchInLinks(value, link.linkName())]);
           linksScored.sort((a, b) => b[1] - a[1]);
-          let allItems = linksScored.slice(0, 10).map(([link]) => new LinkItem(link));
+          const allItems = linksScored.slice(0, 10).map(([link]) => new LinkItem(link));
           if (!onlyAutoSelect && input.value && input.value !== '') {
             allItems.unshift(new LinkItem(Link.fromRawLink(input.value)));
           }

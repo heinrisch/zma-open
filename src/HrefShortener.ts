@@ -21,7 +21,7 @@ class FileBackedMap {
             const content = fs.readFileSync(this.filePath, 'utf8');
             const lines = content.split('\n');
             for (const line of lines) {
-                if (!line.trim()) continue;
+                if (!line.trim()) { continue; }
                 const sepIndex = line.indexOf(this.separator);
                 if (sepIndex > 0) {
                     const key = line.substring(0, sepIndex).trim();
@@ -65,7 +65,7 @@ export class LinkShortener {
     private _shortToHref: FileBackedMap | null = null;
 
     private get shortToHref(): FileBackedMap {
-        if (this._shortToHref) return this._shortToHref;
+        if (this._shortToHref) { return this._shortToHref; }
         const folder = workspaceFolderPath();
         if (!folder) {
             throw new Error("Workspace folder not found for LinkShortener");
@@ -116,7 +116,7 @@ export class LinkShortener {
     }
 
     public getHref(short: string): string | undefined {
-        if (!short.startsWith('&')) return undefined;
+        if (!short.startsWith('&')) { return undefined; }
         return this.shortToHref.get(short);
     }
 

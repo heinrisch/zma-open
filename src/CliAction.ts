@@ -13,7 +13,7 @@ interface CliAction {
 }
 
 export function activateCliActions(context: vscode.ExtensionContext) {
-    let disposable = vscode.commands.registerCommand('zma.runCliAction', async () => {
+    const disposable = vscode.commands.registerCommand('zma.runCliAction', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage('No active editor found');
@@ -40,7 +40,7 @@ export function activateCliActions(context: vscode.ExtensionContext) {
             { placeHolder: 'Select a text action' }
         );
 
-        if (!selectedAction) return;
+        if (!selectedAction) { return; }
 
         const folder = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
         if (!folder) {

@@ -294,7 +294,7 @@ const HrefDecorator: TextDecorator = createRegexDecorator(
 
 export const bulletRegionLines = (text: string): vscode.Range[] => {
   const lines = text.split('\n');
-  var rangeStartLine: number | null = null;
+  let rangeStartLine: number | null = null;
   const ranges: vscode.Range[] = [];
   lines.forEach((line, index) => {
     if (rangeStartLine === null) {

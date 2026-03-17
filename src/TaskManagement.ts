@@ -202,7 +202,7 @@ export class TaskManagementPanel {
         const files = sharedIndex2().allFiles();
         for (const file of files) {
             const task = file.tasks.find(t => t.id === taskId);
-            if (task) return task;
+            if (task) { return task; }
         }
         return undefined;
     }

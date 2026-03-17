@@ -30,7 +30,7 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
   const shouldHaveBrackets = openBracketsCount === closeBracketsCount;
 
   const startTime = Date.now();
-  const dayLimit = 14
+  const dayLimit = 14;
 
   const top50completion: [AutocompleteItem, number[]][] = sharedIndex2().autoCompleteItems()
     .filter((a: AutocompleteItem): boolean => suggestHeader ? a.type === AutocompleteType.HEADER : a.type !== AutocompleteType.HEADER)
@@ -41,7 +41,7 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
     .map(([a, score]): [AutocompleteItem, number[]] => {
       const [occurances, daysAgo] = ScoringUtils.occuranceCountAndDaysAgoMentioned(a.text);
       return [a, [score, occurances, Math.min(dayLimit, daysAgo)]];
-    })
+    });
 
   const maxOccurances = Math.max(...top50completion.map(([, scores]) => scores[1]), 1);
   const maxDaysAgo = Math.min(Math.max(...top50completion.map(([, scores]) => scores[2]), 1), dayLimit);

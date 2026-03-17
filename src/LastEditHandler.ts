@@ -137,7 +137,7 @@ export const findFirstDate = (start: string): Date | null => {
         }
       }
 
-      if (levelBest) return levelBest;
+      if (levelBest) { return levelBest; }
 
       for (const ll of lls) {
         const next = ll.location.link.linkName();
@@ -184,4 +184,4 @@ export const getLastEdit = (linkName: string, writeToFile: boolean = true, useIn
   }
 
   return stored!;
-}
+};

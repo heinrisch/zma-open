@@ -41,7 +41,7 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
             vscode.window.onDidChangeActiveTextEditor(() => this.scheduleUpdate()),
             vscode.workspace.onDidChangeTextDocument(e => {
                 const ed = vscode.window.activeTextEditor;
-                if (ed && e.document === ed.document) this.scheduleUpdate();
+                if (ed && e.document === ed.document) { this.scheduleUpdate(); }
             }),
             vscode.window.onDidChangeTextEditorSelection(() => this.scheduleUpdate()),
             vscode.workspace.onDidOpenTextDocument(() => this.scheduleUpdate()),
@@ -95,7 +95,7 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
             return colorForString(url);
         }
 
-        return AssetTypeColors[classification.assetType]
+        return AssetTypeColors[classification.assetType];
 
     }
 
@@ -111,7 +111,7 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
 
     private update() {
         const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document.languageId !== 'markdown') return;
+        if (!editor || editor.document.languageId !== 'markdown') { return; }
 
         const doc = editor.document;
         if (!this.enabled) {
@@ -148,7 +148,7 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
             const urlRange = new vscode.Range(doc.positionAt(urlStartOffset), doc.positionAt(urlEndOffset));
             const linkTextRange = new vscode.Range(doc.positionAt(linkTextStart), doc.positionAt(linkTextEnd));
 
-            if (urlRange.start.line === cursorLine || urlRange.end.line === cursorLine) continue;
+            if (urlRange.start.line === cursorLine || urlRange.end.line === cursorLine) { continue; }
 
             hidden.push({ range: urlRange });
 
@@ -177,7 +177,7 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
             const closeBracketRange = new vscode.Range(doc.positionAt(closeBracketStart), doc.positionAt(closeBracketEnd));
             const contentRange = new vscode.Range(doc.positionAt(contentStart), doc.positionAt(contentEnd));
 
-            if (openBracketRange.start.line === cursorLine || closeBracketRange.end.line === cursorLine) continue;
+            if (openBracketRange.start.line === cursorLine || closeBracketRange.end.line === cursorLine) { continue; }
 
             weak.push({ range: openBracketRange });
             weak.push({ range: closeBracketRange });
@@ -227,7 +227,7 @@ function colorForString(s: string): string {
 }
 
 export function stringToIndex(s: string, n: number): number {
-    if (n <= 0) throw new Error("n must be > 0");
+    if (n <= 0) { throw new Error("n must be > 0"); }
     let h = 0;
     for (let i = 0; i < s.length; i++) {
         h = (h << 5) - h + s.charCodeAt(i);

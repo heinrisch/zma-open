@@ -5,8 +5,8 @@ export class ScoringUtils {
   static minScore = 0.2;
 
   static matchScore = (search: string, text: string): number => {
-    let isearch = Array.from(search.replace(/[^a-zA-Z0-9]/g, ''));
-    let itext = Array.from(text.replace(/[^a-zA-Z0-9]/g, ''));
+    const isearch = Array.from(search.replace(/[^a-zA-Z0-9]/g, ''));
+    const itext = Array.from(text.replace(/[^a-zA-Z0-9]/g, ''));
 
     let score = text.toLowerCase().includes(search.toLowerCase()) ? 10 : 0;
     let penalty: number = 0;
@@ -34,10 +34,10 @@ export class ScoringUtils {
       }
     }
     penalty += itext.length;
-    let textPenalty: number = penalty / text.length;
+    const textPenalty: number = penalty / text.length;
 
-    let searchMiss = isearch.length;
-    let searchPenalty = searchMiss / search.length;
+    const searchMiss = isearch.length;
+    const searchPenalty = searchMiss / search.length;
     return score * (2 - (textPenalty + searchPenalty));
   };
 
@@ -77,7 +77,7 @@ export class ScoringUtils {
 
     const scalingFactor = 1 / Math.log(2);
 
-    const score = scalingFactor * Math.log(diff / halfOccurrence + 1)
+    const score = scalingFactor * Math.log(diff / halfOccurrence + 1);
 
     return Math.min(1, Math.max(score, this.minScore));
   };
@@ -92,7 +92,7 @@ export class ScoringUtils {
     const d = ed ? ScoringUtils.dateScore(ed) : ScoringUtils.minScore;
     const r = ed ? ScoringUtils.recentcyScore(ed) : ScoringUtils.minScore;
     let f = ScoringUtils.frequencyScore(text);
-    f = f > ScoringUtils.minScore ? f : ScoringUtils.minScore
+    f = f > ScoringUtils.minScore ? f : ScoringUtils.minScore;
 
     return s * d * r * r * f;
   };
@@ -106,7 +106,7 @@ export class ScoringUtils {
     const ed = getLastEditedIndexed(text);
     const d = ed ? ScoringUtils.recentcyScore(ed) : ScoringUtils.minScore;
     let f = ScoringUtils.frequencyScore(search);
-    f = f > ScoringUtils.minScore ? f : ScoringUtils.minScore
+    f = f > ScoringUtils.minScore ? f : ScoringUtils.minScore;
     return s * d * f;
   };
 

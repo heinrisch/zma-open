@@ -125,7 +125,7 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   );
 
   vscode.workspace.onDidChangeTextDocument(async (event: vscode.TextDocumentChangeEvent) => {
-    await linkToMarkdownConversion(event)
+    await linkToMarkdownConversion(event);
   });
 
   vscode.workspace.onDidSaveTextDocument(async (document) => {

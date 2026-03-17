@@ -97,9 +97,9 @@ class URLClassifier {
       extractMetadata: (url) => {
         const metadata: Record<string, any> = {};
         const accountMatch = url.pathname.match(/\/u\/(\d+)\//);
-        if (accountMatch) metadata.account = parseInt(accountMatch[1]);
-        if (url.pathname.includes('/preview')) metadata.mode = 'preview';
-        else if (url.pathname.includes('/edit')) metadata.mode = 'edit';
+        if (accountMatch) { metadata.account = parseInt(accountMatch[1]); }
+        if (url.pathname.includes('/preview')) { metadata.mode = 'preview'; }
+        else if (url.pathname.includes('/edit')) { metadata.mode = 'edit'; }
         return metadata;
       }
     },
@@ -117,9 +117,9 @@ class URLClassifier {
       extractMetadata: (url) => {
         const metadata: Record<string, any> = {};
         const accountMatch = url.pathname.match(/\/u\/(\d+)\//);
-        if (accountMatch) metadata.account = parseInt(accountMatch[1]);
+        if (accountMatch) { metadata.account = parseInt(accountMatch[1]); }
         const gidMatch = url.hash.match(/gid=(\d+)/);
-        if (gidMatch) metadata.sheetId = gidMatch[1];
+        if (gidMatch) { metadata.sheetId = gidMatch[1]; }
         return metadata;
       }
     },
@@ -137,9 +137,9 @@ class URLClassifier {
       extractMetadata: (url) => {
         const metadata: Record<string, any> = {};
         const accountMatch = url.pathname.match(/\/u\/(\d+)\//);
-        if (accountMatch) metadata.account = parseInt(accountMatch[1]);
+        if (accountMatch) { metadata.account = parseInt(accountMatch[1]); }
         const slideMatch = url.hash.match(/slide=id\.([a-zA-Z0-9-_]+)/);
-        if (slideMatch) metadata.slideId = slideMatch[1];
+        if (slideMatch) { metadata.slideId = slideMatch[1]; }
         return metadata;
       }
     },
@@ -197,7 +197,7 @@ class URLClassifier {
       extractMetadata: (url) => {
         const metadata: Record<string, any> = {};
         const userMatch = url.pathname.match(/\/u\/(\d+)\//);
-        if (userMatch) metadata.userIndex = parseInt(userMatch[1]);
+        if (userMatch) { metadata.userIndex = parseInt(userMatch[1]); }
         return metadata;
       }
     },
@@ -218,7 +218,7 @@ class URLClassifier {
       extractMetadata: (url) => {
         const metadata: Record<string, any> = {};
         const groupMatch = url.pathname.match(/\/a\/([^\/]+)\//);
-        if (groupMatch) metadata.group = groupMatch[1];
+        if (groupMatch) { metadata.group = groupMatch[1]; }
         return metadata;
       }
     },
@@ -232,9 +232,9 @@ class URLClassifier {
       platform: Platform.Atlassian,
       extractId: (url) => {
         const pageMatch = url.pathname.match(/\/pages\/(\d+)/);
-        if (pageMatch) return `page-${pageMatch[1]}`;
+        if (pageMatch) { return `page-${pageMatch[1]}`; }
         const displayMatch = url.pathname.match(/\/display\/(.+)/);
-        if (displayMatch) return `display-${displayMatch[1]}`;
+        if (displayMatch) { return `display-${displayMatch[1]}`; }
         return null;
       },
       buildNormalizedUrl: (id, metadata) => {
@@ -250,7 +250,7 @@ class URLClassifier {
           baseUrl: `${url.protocol}//${url.hostname}`
         };
         const spaceMatch = url.pathname.match(/\/spaces\/([^\/]+)/);
-        if (spaceMatch) metadata.spaceKey = spaceMatch[1];
+        if (spaceMatch) { metadata.spaceKey = spaceMatch[1]; }
         return metadata;
       }
     },
@@ -291,7 +291,7 @@ class URLClassifier {
           metadata.repository = pathParts[1];
         }
         const branch = url.searchParams.get('at');
-        if (branch) metadata.branch = branch;
+        if (branch) { metadata.branch = branch; }
         return metadata;
       }
     },
@@ -347,9 +347,9 @@ class URLClassifier {
       extractMetadata: (url) => {
         const metadata: Record<string, any> = {};
         const viewport = url.searchParams.get('moveToViewport');
-        if (viewport) metadata.viewport = viewport;
+        if (viewport) { metadata.viewport = viewport; }
         const fromEmbed = url.searchParams.get('fromEmbed');
-        if (fromEmbed) metadata.embedded = fromEmbed === '1';
+        if (fromEmbed) { metadata.embedded = fromEmbed === '1'; }
         return metadata;
       }
     },

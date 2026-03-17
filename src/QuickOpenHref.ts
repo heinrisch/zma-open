@@ -53,7 +53,7 @@ async function pickHref() {
       clonedItem.label = sortPrefix + item.label;
       return clonedItem;
     });
-  }
+  };
 
 
   try {

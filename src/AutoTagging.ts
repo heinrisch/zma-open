@@ -18,7 +18,7 @@ interface AutoTagAction {
 }
 
 export function activateAutoTagging(context: vscode.ExtensionContext) {
-    let disposable = vscode.commands.registerCommand('zma.autoTagLink', async () => {
+    const disposable = vscode.commands.registerCommand('zma.autoTagLink', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage('No active editor found');
@@ -62,7 +62,7 @@ export function activateAutoTagging(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(disposable);
 
-    let disposableNext = vscode.commands.registerCommand('zma.autoTagNextUntagged', async () => {
+    const disposableNext = vscode.commands.registerCommand('zma.autoTagNextUntagged', async () => {
         await autoTagNextUntagged();
     });
     context.subscriptions.push(disposableNext);
@@ -272,7 +272,7 @@ function loadAutoTagAction(): AutoTagAction {
         ]
     };
 
-    if (!folder) return defaultAction;
+    if (!folder) { return defaultAction; }
 
     const actionsPath = path.join(folder, 'llm-actions');
     const actionFile = path.join(actionsPath, 'auto-tag.json');
@@ -296,7 +296,7 @@ function loadAutoTagAction(): AutoTagAction {
 }
 
 function parseTags(response: string): string[] {
-    let cleanResponse = response.replace(/^Tags:\s*/i, '').replace(/```/g, '').trim();
+    const cleanResponse = response.replace(/^Tags:\s*/i, '').replace(/```/g, '').trim();
     return cleanResponse.split(',').map(t => t.trim()).filter(t => t.length > 0);
 }
 

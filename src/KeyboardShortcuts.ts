@@ -29,14 +29,14 @@ function toggleStrong() {
 
 function styleByWrapping(startPattern: string, endPattern = startPattern) {
   const editor = window.activeTextEditor!;
-  let selections = editor.selections;
+  const selections = editor.selections;
 
-  let batchEdit = new WorkspaceEdit();
-  let shifts: [Position, number][] = [];
-  let newSelections: Selection[] = selections.slice();
+  const batchEdit = new WorkspaceEdit();
+  const shifts: [Position, number][] = [];
+  const newSelections: Selection[] = selections.slice();
 
   for (const [i, selection] of selections.entries()) {
-    let cursorPos = selection.active;
+    const cursorPos = selection.active;
     const shift = shifts
       .map(([pos, s]) => (selection.start.line === pos.line && selection.start.character >= pos.character ? s : 0))
       .reduce((a, b) => a + b, 0);
@@ -49,12 +49,12 @@ function styleByWrapping(startPattern: string, endPattern = startPattern) {
         ['**', '*', '__', '_'].includes(startPattern) &&
         context === `${startPattern}text|${endPattern}`
       ) {
-        let newCursorPos = cursorPos.with({ character: cursorPos.character + shift + endPattern.length });
+        const newCursorPos = cursorPos.with({ character: cursorPos.character + shift + endPattern.length });
         newSelections[i] = new Selection(newCursorPos, newCursorPos);
         continue;
       } else if (context === `${startPattern}|${endPattern}`) {
-        let start = cursorPos.with({ character: cursorPos.character - startPattern.length });
-        let end = cursorPos.with({ character: cursorPos.character + endPattern.length });
+        const start = cursorPos.with({ character: cursorPos.character - startPattern.length });
+        const end = cursorPos.with({ character: cursorPos.character + endPattern.length });
         wrapRange(
           editor,
           batchEdit,
@@ -123,7 +123,7 @@ function styleByWrapping(startPattern: string, endPattern = startPattern) {
     startPtn: string,
     endPtn: string
   ) {
-    let text = editor.document.getText(range);
+    const text = editor.document.getText(range);
     const prevSelection = newSelections[i];
     const ptnLength = (startPtn + endPtn).length;
 
@@ -185,16 +185,16 @@ function styleByWrapping(startPattern: string, endPattern = startPattern) {
 
 function getContext(editor: TextEditor, cursorPos: Position, startPattern: string, endPattern: string): string {
   let startPositionCharacter = cursorPos.character - startPattern.length;
-  let endPositionCharacter = cursorPos.character + endPattern.length;
+  const endPositionCharacter = cursorPos.character + endPattern.length;
 
   if (startPositionCharacter < 0) {
     startPositionCharacter = 0;
   }
 
-  let leftText = editor.document.getText(
+  const leftText = editor.document.getText(
     new Range(cursorPos.line, startPositionCharacter, cursorPos.line, cursorPos.character)
   );
-  let rightText = editor.document.getText(
+  const rightText = editor.document.getText(
     new Range(cursorPos.line, cursorPos.character, cursorPos.line, endPositionCharacter)
   );
 

@@ -16,7 +16,7 @@ export interface LlmAction {
 }
 
 export function activateLlmActions(context: vscode.ExtensionContext) {
-    let disposable = vscode.commands.registerCommand('zma.runLlmAction', async () => {
+    const disposable = vscode.commands.registerCommand('zma.runLlmAction', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage('No active editor found');
@@ -47,7 +47,7 @@ export function activateLlmActions(context: vscode.ExtensionContext) {
             { placeHolder: 'Select an LLM action' }
         );
 
-        if (!selectedAction) return;
+        if (!selectedAction) { return; }
 
         vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
