@@ -44,7 +44,6 @@ export async function activate(context: vscode.ExtensionContext) {
   const lastEditFilePath = vscode.Uri.joinPath(workspaceRoot, 'lastEdit.txt');
 
   let pagesExists = false;
-  let lastEditExists = false;
   try {
     await vscode.workspace.fs.stat(pagesFolderPath);
     pagesExists = true;
@@ -54,17 +53,17 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   }
 
-  try {
-    await vscode.workspace.fs.stat(lastEditFilePath);
-    lastEditExists = true;
-  } catch (error: any) {
-    if (error.code !== 'FileNotFound') {
-      console.error('Error checking lastEdit.txt:', error);
+  if (pagesExists) {
+    try {
+      await vscode.workspace.fs.stat(lastEditFilePath);
+    } catch (error: any) {
+      if (error.code === 'FileNotFound') {
+        await vscode.workspace.fs.writeFile(lastEditFilePath, new Uint8Array(0));
+      }
     }
-  }
-
-  if (pagesExists && lastEditExists) {
     await activateFeatures(context);
+  } else {
+    console.log('ZMA: Pages folder missing. Auto-activation skipped.');
   }
 }
 

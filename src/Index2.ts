@@ -234,7 +234,6 @@ export const sharedIndex2 = () => {
 };
 
 export async function reindex2() {
-  console.log('Starting Reindex 2');
   const stopwatch = new Stopwatch('Reindex 2');
 
   await vscode.workspace.saveAll();

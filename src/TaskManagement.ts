@@ -1,6 +1,28 @@
 import * as vscode from 'vscode';
-import { Task, TaskState, prioTask, snoozeTask, completeTask, changeCategory, resetSnooze } from './Tasks';
+import { Task, TaskState, prioTask, snoozeTask, completeTask, changeCategory, resetSnooze, getTaskData } from './Tasks';
 import { sharedIndex2 } from './Index2';
+
+/**
+ * TASK MANAGEMENT UI & PERSISTENCE LOGIC:
+ * 
+ * 1. Immediate Persistence:
+ *    When a user interacts with a task (e.g., clicking complete, changing priority, or snoozing),
+ *    the backend MUST update the underlying Markdown document(s) immediately.
+ * 
+ * 2. UI Stability (Deferred Refresh):
+ *    Even though the backing document updates immediately, the Task Management list UI 
+ *    should NOT remove the task or re-sort the list automatically. 
+ *    - Completed tasks should stay in the list but be visually marked (e.g., grayed out).
+ *    - This stability allows the user to 'undo' an action or maintain their place in the list.
+ * 
+ * 3. Manual Refresh:
+ *    The list should only be fully updated (removing completed tasks and re-syncing with the index)
+ *     when the user explicitly clicks the "Refresh" button.
+ * 
+ * 4. Regression Warning:
+ *    Avoid automatic refreshes triggered by file-system watchers (like those in extension.ts) 
+ *    that would cause tasks to "vanish" from the webview as soon as they are marked DONE in the file.
+ */
 
 export const activateTaskManagement = (context: vscode.ExtensionContext) => {
     context.subscriptions.push(
@@ -28,7 +50,7 @@ export class TaskManagementPanel {
             async (message) => {
                 switch (message.type) {
                     case 'refresh':
-                        this.refresh();
+                        this.refresh(message.manual);
                         break;
                     case 'changeCategory':
                         await this.handleChangeCategory(message.taskId, message.newCategory);
@@ -101,10 +123,10 @@ export class TaskManagementPanel {
         }
     }
 
-    public refresh() {
+    public refresh(isManual: boolean = false) {
         const tasks = this._getAllTasks();
         const categories = this._getAllCategories(tasks);
-        this._panel.webview.postMessage({ type: 'update', tasks, categories });
+        this._panel.webview.postMessage({ type: 'update', tasks, categories, isManual });
     }
 
     private _getAllCategories(tasks: any[]): string[] {
@@ -135,7 +157,6 @@ export class TaskManagementPanel {
         allTasks.sort((a, b) => b.prio() - a.prio());
 
         return allTasks.map(task => {
-            const { getTaskData } = require('./Tasks');
             const td = getTaskData(task.id);
             const snoozeDate = td.getSnoozeUntil();
             const now = new Date();
@@ -257,9 +278,20 @@ export class TaskManagementPanel {
                 .prio-low { border-left: 3px solid #3b82f6; background-color: rgba(59, 130, 246, 0.05); }
                 .prio-neutral { border-left: 3px solid transparent; }
                 
+                .completed-task {
+                    opacity: 0.5;
+                    text-decoration: line-through;
+                    background-color: rgba(0, 255, 0, 0.05);
+                    border-left-color: #22c55e !important;
+                }
+                
                 .group-header {
                     cursor: pointer;
                     user-select: none;
+                    background-color: var(--vscode-sideBar-background);
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    margin-bottom: 4px;
                 }
                 .group-header:hover {
                     background-color: var(--vscode-list-hoverBackground);
@@ -272,12 +304,6 @@ export class TaskManagementPanel {
                 }
                 .collapsed + .group-content {
                     display: none;
-                }
-                
-                .completed-task {
-                    opacity: 0.5;
-                    text-decoration: line-through;
-                    background-color: rgba(0, 255, 0, 0.05);
                 }
                 
                 .refresh-btn {
@@ -297,7 +323,7 @@ export class TaskManagementPanel {
             <div class="p-4 border-b border-[var(--vscode-panel-border)] flex justify-between items-center bg-[var(--vscode-editor-background)] z-10">
                 <div class="flex items-center gap-4">
                     <h1 class="text-xl font-bold">Tasks</h1>
-                    <button class="refresh-btn" onclick="vscode.postMessage({ type: 'refresh' })">Refresh</button>
+                    <button class="refresh-btn" onclick="vscode.postMessage({ type: 'refresh', manual: true })">Refresh</button>
                     <button class="refresh-btn" onclick="toggleAllGroups()">Collapse All</button>
                 </div>
                 <div class="text-sm opacity-75" id="taskCount">Loading...</div>
@@ -318,11 +344,29 @@ export class TaskManagementPanel {
                 window.addEventListener('message', event => {
                     const message = event.data;
                     if (message.type === 'update') {
-                        allTasks = message.tasks;
-                        allCategories = message.categories;
-                        
-                        const currentIds = new Set(allTasks.map(t => t.id));
-                        completedTaskIds = new Set([...completedTaskIds].filter(id => currentIds.has(id)));
+                        if (message.isManual) {
+                            allTasks = message.tasks;
+                            allCategories = message.categories;
+                            completedTaskIds.clear();
+                        } else {
+                            // Preserve tasks that are locally completed but missing from backend update
+                            const currentlyCompletedTasks = allTasks.filter(t => completedTaskIds.has(t.id));
+                            
+                            const newTasksDict = {};
+                            message.tasks.forEach(t => newTasksDict[t.id] = t);
+                            
+                            currentlyCompletedTasks.forEach(t => {
+                                if (!newTasksDict[t.id]) {
+                                    newTasksDict[t.id] = t;
+                                }
+                            });
+                            
+                            allTasks = Object.values(newTasksDict);
+                            allCategories = message.categories;
+                            
+                            const currentIds = new Set(allTasks.map(t => t.id));
+                            completedTaskIds = new Set([...completedTaskIds].filter(id => currentIds.has(id)));
+                        }
                         
                         render();
                     }
@@ -529,7 +573,7 @@ export class TaskManagementPanel {
                     return days;
                 }
 
-                vscode.postMessage({ type: 'refresh' });
+                vscode.postMessage({ type: 'refresh', manual: false });
             </script>
         </body>
         </html>`;
