@@ -30,6 +30,7 @@ import { activateRenameProvider } from './RenameProvider';
 let hasActivatedFeatures = false;
 
 export async function activate(context: vscode.ExtensionContext) {
+  console.log('ZMA: activate() called');
   context.subscriptions.push(vscode.commands.registerCommand('zma.init', async () => {
     await initZma(context);
     await activateFeatures(context);
@@ -37,19 +38,24 @@ export async function activate(context: vscode.ExtensionContext) {
 
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
+    console.log('ZMA: No workspace folders found, returning');
     return;
   }
   const workspaceRoot = workspaceFolders[0].uri;
   const pagesFolderPath = vscode.Uri.joinPath(workspaceRoot, 'pages');
   const lastEditFilePath = vscode.Uri.joinPath(workspaceRoot, 'lastEdit.txt');
 
+  console.log('ZMA: Checking pages folder at', pagesFolderPath.fsPath);
   let pagesExists = false;
   try {
     await vscode.workspace.fs.stat(pagesFolderPath);
     pagesExists = true;
+    console.log('ZMA: Pages folder exists');
   } catch (error: any) {
     if (error.code !== 'FileNotFound') {
-      console.error('Error checking pages folder:', error);
+      console.error('ZMA: Error checking pages folder:', error);
+    } else {
+      console.log('ZMA: Pages folder not found');
     }
   }
 
@@ -61,18 +67,24 @@ export async function activate(context: vscode.ExtensionContext) {
         await vscode.workspace.fs.writeFile(lastEditFilePath, new Uint8Array(0));
       }
     }
+    console.log('ZMA: Calling activateFeatures()');
     await activateFeatures(context);
+    console.log('ZMA: activateFeatures() completed');
   } else {
     console.log('ZMA: Pages folder missing. Auto-activation skipped.');
   }
 }
 
 async function activateFeatures(context: vscode.ExtensionContext) {
+  console.log('ZMA: activateFeatures() called');
   if (hasActivatedFeatures) {
+    console.log('ZMA: Features already activated, skipping');
     return;
   }
   hasActivatedFeatures = true;
+  console.log('ZMA: Starting reindex2()');
   await reindex2();
+  console.log('ZMA: reindex2() completed');
 
   activateListEditing(context);
   activateKeyboardShortcuts(context);

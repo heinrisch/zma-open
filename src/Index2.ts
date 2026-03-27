@@ -9,7 +9,7 @@ import { findAndCreateTasks, Task, TaskState } from './Tasks';
 import { escapeRegExp } from './Util';
 import { readLastEditIndexFromFile } from './LastEditHandler';
 import { readTagIndexFromFile, getTagsForLink, removeTagsForLink } from './TagHandler';
-import {  sharedLinkShortener } from './HrefShortener';
+import { sharedLinkShortener } from './HrefShortener';
 
 export class ZmaFile {
   constructor(
@@ -241,31 +241,25 @@ export async function reindex2() {
 }
 
 async function traverseFolder(folderPath: vscode.Uri, index: Index2): Promise<void> {
-  try {
-    const entries = await vscode.workspace.fs.readDirectory(folderPath);
+  const pattern = new vscode.RelativePattern(folderPath, '**/*.{md,markdown}');
+  const files = await vscode.workspace.findFiles(pattern);
 
-    for (const [entryName, entryType] of entries) {
-      const entryPath = vscode.Uri.joinPath(folderPath, entryName);
+  const batchSize = 50;
+  for (let i = 0; i < files.length; i += batchSize) {
+    const batch = files.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (fileUri) => {
+      try {
+        const fileBuffer = await vscode.workspace.fs.readFile(fileUri);
+        const fileContent = new TextDecoder().decode(fileBuffer);
 
-      if (entryType === vscode.FileType.File) {
-        if (['.md', '.markdown'].includes(path.extname(entryName).toLowerCase())) {
-          try {
-            const fileBuffer = await vscode.workspace.fs.readFile(entryPath);
-            const fileContent = new TextDecoder().decode(fileBuffer);
-
-            const preprocessedContent = await preprocessMdFile(fileContent, entryPath.fsPath);
-            const zmaFile = await processMdFile(preprocessedContent, entryPath.fsPath);
-            index.addFile(zmaFile);
-          } catch (fileReadError) {
-            void vscode.window.showErrorMessage(`Error processing file ${entryName}: ${fileReadError}`);
-          }
-        }
-      } else if (entryType === vscode.FileType.Directory) {
-        await traverseFolder(entryPath, index);
+        const preprocessedContent = await preprocessMdFile(fileContent, fileUri.fsPath);
+        const zmaFile = await processMdFile(preprocessedContent, fileUri.fsPath);
+        index.addFile(zmaFile);
+      } catch (fileReadError) {
+        const fileName = path.basename(fileUri.fsPath);
+        void vscode.window.showErrorMessage(`Error processing file ${fileName}: ${fileReadError}`);
       }
-    }
-  } catch (error) {
-    void vscode.window.showErrorMessage(`Error traversing folder: ${error}`);
+    }));
   }
 }
 

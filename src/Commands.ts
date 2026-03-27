@@ -214,20 +214,14 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
       outputChannel.appendLine('=== ZMA Index Statistics ===');
       outputChannel.appendLine(`Total Files: ${stats.totalFiles}`);
       outputChannel.appendLine(`Total Explicit Links: ${stats.totalExplicitLinks}`);
-      outputChannel.appendLine(`Total Unlinked Matches: ${stats.totalUnlinkedMatches}`);
       outputChannel.appendLine('');
       outputChannel.appendLine('--- Memory Usage ---');
       outputChannel.appendLine(`Heap Used: ${stats.memory.heapUsed} MB`);
       outputChannel.appendLine(`Heap Total: ${stats.memory.heapTotal} MB`);
       outputChannel.appendLine(`RSS: ${stats.memory.rss} MB`);
       outputChannel.appendLine('');
-      outputChannel.appendLine('--- Top 10 Links with Most Unlinked Matches ---');
-      stats.topUnlinked.forEach(([name, count], i) => {
-        outputChannel.appendLine(`${i + 1}. [[${name}]]: ${count} matches`);
-      });
-      outputChannel.appendLine('');
       outputChannel.appendLine('--- Top 10 Files with Most Links ---');
-      stats.topFilesByLinks.forEach(([name, count], i) => {
+      stats.topFilesByLinks.forEach(([name, count]: [string, number], i: number) => {
         outputChannel.appendLine(`${i + 1}. ${name}: ${count} links`);
       });
       outputChannel.appendLine('============================');
