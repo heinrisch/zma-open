@@ -26,12 +26,17 @@ export class ZmaFile {
 export class Index2 {
   public isCompleted: boolean = false;
   private files: Map<string, ZmaFile> = new Map();
+  private cache = new Map<string, any>();
 
-  private _allLinkLocations: Array<LinkLocation> | null = null;
+  private cached<T>(key: string, compute: () => T): T {
+    if (!this.cache.has(key)) {
+      this.cache.set(key, compute());
+    }
+    return this.cache.get(key) as T;
+  }
 
   public addFile(zmaFile: ZmaFile) {
     this.files.set(zmaFile.link.linkName(), zmaFile);
-
     this.clearCache();
   }
 
@@ -40,39 +45,28 @@ export class Index2 {
   }
 
   public linkLocations(): LinkLocation[] {
-    if (this._allLinkLocations === null) {
-      this._allLinkLocations = this.allFiles().flatMap(file => {
-        return file.linkLocations;
-      });
-    }
-
-    return this._allLinkLocations;
+    return this.cached('linkLocations', () =>
+      this.allFiles().flatMap(file => file.linkLocations)
+    );
   }
 
   public fileForFilePath(filePath: string): ZmaFile | null {
     return this.allFiles().find(f => f.link.filePath() === filePath) || null;
   }
 
-  private _allLinksRaw: Set<string> | null = null;
-
   public allLinksRaw(): Set<string> {
-    if (this._allLinksRaw === null) {
+    return this.cached('allLinksRaw', () => {
       const all = new Set<string>();
       this.files.forEach(f => all.add(f.link.linkName()));
       this.linkLocations().filter(ll => ll.type !== LinkType.HEADING).forEach(ll => all.add(ll.link.linkName()));
-
-      this._allLinksRaw = all;
-    }
-    return this._allLinksRaw;
+      return all;
+    });
   }
 
-  private _allLinks: Link[] | null = null;
-
   public allLink(): Link[] {
-    if (this._allLinks === null) {
-      this._allLinks = Array.from(this.allLinksRaw()).map(raw => Link.fromRawLink(raw));
-    }
-    return this._allLinks;
+    return this.cached('allLinks', () =>
+      Array.from(this.allLinksRaw()).map(raw => Link.fromRawLink(raw))
+    );
   }
 
   public alias(word: string): string[] {
@@ -86,74 +80,50 @@ export class Index2 {
     return Array.from(new Set(alias));
   }
 
-  private _autoCompleteItems: AutocompleteItem[] | null = null;
-
   public autoCompleteItems(): AutocompleteItem[] {
-    if (this._autoCompleteItems === null) {
-      this._autoCompleteItems = buildAutocompleteItems(this);
-    }
-    return this._autoCompleteItems!;
+    return this.cached('autoCompleteItems', () => buildAutocompleteItems(this));
   }
-
-  private _linkRawOccurances: Map<string, number> | null = null;
 
   public linkRawOccurances(linkRaw: string): number {
-    if (this._linkRawOccurances === null) {
-      this._linkRawOccurances = new Map();
+    return this.cached('linkRawOccurances', () => {
+      const map = new Map<string, number>();
       this.linkLocations().forEach(ll => {
         const linkRaw = ll.link.linkName();
-        const count = this._linkRawOccurances!.get(linkRaw) || 0;
-        this._linkRawOccurances!.set(linkRaw, count + 1);
+        map.set(linkRaw, (map.get(linkRaw) || 0) + 1);
       });
-    }
-    return this._linkRawOccurances.get(linkRaw) || 0;
+      return map;
+    }).get(linkRaw) || 0;
   }
-
-  private _linkScoringOccurances: number | null = null;
 
   public linkScoringOccurances(): number {
-    if (this._linkScoringOccurances === null) {
-      let allOccurancesSorted = Array.from(this._linkRawOccurances!.values()).sort((a, b) => b - a);
+    return this.cached('linkScoringOccurances', () => {
+      let allOccurancesSorted = Array.from(this.cached<Map<string, number>>('linkRawOccurances', () => new Map()).values()).sort((a, b) => b - a);
       allOccurancesSorted = allOccurancesSorted.slice(0, Math.floor(allOccurancesSorted.length / 10)); // Top 10%
-      this._linkScoringOccurances = allOccurancesSorted
-        .reduce((a, b) => a + b, 0) / allOccurancesSorted.length;
-    }
-    return this._linkScoringOccurances!;
+      return allOccurancesSorted.reduce((a, b) => a + b, 0) / allOccurancesSorted.length;
+    });
   }
-
-  private _allActiveTasks: Task[] | null = null;
 
   public allActiveTasks(): Task[] {
-    if (this._allActiveTasks === null) {
-      this._allActiveTasks = this.allFiles().flatMap(f => f.tasks.filter(t => t.state !== TaskState.Done));
-    }
-    return this._allActiveTasks;
+    return this.cached('allActiveTasks', () =>
+      this.allFiles().flatMap(f => f.tasks.filter(t => t.state !== TaskState.Done))
+    );
   }
 
-  private _urlForLinkRaw: Map<string, string[]> | null = null;
-
   public urlsForLinkRaw(linkRaw: string): string[] {
-    if (this._urlForLinkRaw === null) {
-      this._urlForLinkRaw = new Map();
+    return this.cached('urlsForLinkRaw', () => {
+      const map = new Map<string, string[]>();
       this.linkLocations().filter(ll => ll.url).forEach(ll => {
         const linkRaw = ll.link.linkName();
-        const urls = this._urlForLinkRaw!.get(linkRaw) || [];
+        const urls = map.get(linkRaw) || [];
         urls.push(ll.url!);
-        this._urlForLinkRaw!.set(linkRaw, urls);
+        map.set(linkRaw, urls);
       });
-    }
-    return this._urlForLinkRaw.get(linkRaw) || [];
+      return map;
+    }).get(linkRaw) || [];
   }
 
   public clearCache() {
-    this._allLinkLocations = null;
-    this._allLinksRaw = null;
-    this._allLinks = null;
-    this._autoCompleteItems = null;
-    this._linkRawOccurances = null;
-    this._linkScoringOccurances = null;
-    this._allActiveTasks = null;
-    this._urlForLinkRaw = null;
+    this.cache.clear();
   }
 
   public findUnlinkedMentions(linkName: string): LinkLocation[] {
