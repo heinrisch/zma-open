@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { getLastEdit } from './LastEditHandler';
 import { Link } from './Link';
 import { sharedIndex2 } from './Index2';
-import { Context, LinkLocation, LinkType } from './LinkLocation';
+import { Context, LinkLocation } from './LinkLocation';
 
 export class BacklinkProvider implements vscode.TreeDataProvider<BacklinkLink> {
   private _onDidChangeTreeData: vscode.EventEmitter<BacklinkLink | undefined | void> = new vscode.EventEmitter<
@@ -36,8 +36,9 @@ export class BacklinkProvider implements vscode.TreeDataProvider<BacklinkLink> {
     const aliases = index.alias(link.linkName());
 
     const graphChildren = aliases.flatMap(alias => index.linkLocations().filter(ll => ll.link.linkName() === alias));
+    const unlinkedChildren = aliases.flatMap(alias => index.findUnlinkedMentions(alias));
 
-    const children = [...graphChildren].map((ll: LinkLocation) => {
+    const toBacklinkLink = (ll: LinkLocation, icon: string): BacklinkLink | null => {
       if (ll.location.link.linkName() === link.linkName()) {
         return null;
       }
@@ -56,10 +57,15 @@ export class BacklinkProvider implements vscode.TreeDataProvider<BacklinkLink> {
             ll.location.column
           ]
         },
-        ll.type !== LinkType.UNLINKED ? 'link.svg' : 'debug-disconnect.svg',
+        icon,
         vscode.Uri.file(ll.location.link.filePath())
       );
-    }).filter((x) => x !== null) as BacklinkLink[];
+    };
+
+    const children = [
+      ...graphChildren.map(ll => toBacklinkLink(ll, 'link.svg')),
+      ...unlinkedChildren.map(ll => toBacklinkLink(ll, 'debug-disconnect.svg')),
+    ].filter((x) => x !== null) as BacklinkLink[];
 
     children.sort((a: BacklinkLink, b: BacklinkLink) => {
       const aLastEdit = getLastEdit(a.label);

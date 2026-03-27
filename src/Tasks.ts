@@ -38,17 +38,13 @@ export class Task {
     this.location = location;
     this.state = this.parseState();
 
-    const groupPrefix = this.getGroup() ? `/${this.getGroup()}` : '';
-    // Fix: Handle cases where groupPrefix is empty correctly in replacement
     const stateStr = `- ${this.state}`;
     const stateWithGroup = this.getGroup() ? `${stateStr}/${this.getGroup()}` : stateStr;
-    
-    // Fallback if replace doesn't work as expected (simple string manipulation)
+
     if (this.full.startsWith(stateWithGroup)) {
-        this.taskWithoutState = this.full.substring(stateWithGroup.length).trim();
+      this.taskWithoutState = this.full.substring(stateWithGroup.length).trim();
     } else {
-        // Try without group if regex parsed it but string replacement failed (edge case)
-        this.taskWithoutState = this.full.replace(stateStr, '').trim();
+      this.taskWithoutState = this.full.replace(stateStr, '').trim();
     }
 
     this.id = this.taskWithoutState.replace(new RegExp('[^a-zA-Z0-9]', 'g'), '');
@@ -107,7 +103,7 @@ export const findAndCreateTasks = (sourceLink: Link, fileContent: string): Task[
 
     const td = getTaskData(task.id);
     const differenceInMilliseconds = Math.abs(td.getCreatedAt().getTime() - td.getDoneAt().getTime());
-    if(task.state === TaskState.Done && differenceInMilliseconds < 1000*10) {
+    if (task.state === TaskState.Done && differenceInMilliseconds < 1000 * 10) {
       setDoneNow(task.id);
     }
 
@@ -154,7 +150,7 @@ class TaskData {
     public createdAt: string = new Date().toString(),
     public doneAt: string = new Date().toString(),
     public prio: number = 0
-  ) {}
+  ) { }
 
   getSnoozeUntil(): Date {
     return new Date(this.snoozeUntil);
@@ -236,37 +232,37 @@ export const prioTask = (taskId: string, value: number) => {
 };
 
 export const completeTask = async (task: Task) => {
-    const document = await vscode.workspace.openTextDocument(vscode.Uri.file(task.location.link.filePath()));
-    const edit = new vscode.WorkspaceEdit();
-    const line = document.lineAt(task.location.row);
-    const newText = line.text.replace('TODO', 'DONE');
-    edit.replace(document.uri, line.range, newText);
-    await vscode.workspace.applyEdit(edit);
+  const document = await vscode.workspace.openTextDocument(vscode.Uri.file(task.location.link.filePath()));
+  const edit = new vscode.WorkspaceEdit();
+  const line = document.lineAt(task.location.row);
+  const newText = line.text.replace('TODO', 'DONE');
+  edit.replace(document.uri, line.range, newText);
+  await vscode.workspace.applyEdit(edit);
 };
 
 export const changeCategory = async (task: Task, newCategory: string) => {
-    const document = await vscode.workspace.openTextDocument(vscode.Uri.file(task.location.link.filePath()));
-    const edit = new vscode.WorkspaceEdit();
-    const line = document.lineAt(task.location.row);
-    let newText = line.text;
-    
-    const currentGroup = task.parseGroup();
-    
-    if (newCategory === 'Inbox' || newCategory === '') {
-        // Remove category
-        if (currentGroup) {
-            newText = newText.replace(`/${currentGroup}`, ``);
-        }
-    } else {
-        // Add or change category
-        if (currentGroup) {
-            newText = newText.replace(`/${currentGroup}`, `/${newCategory}`);
-        } else {
-            // Insert category after TODO/DOING
-            newText = newText.replace(/- (TODO|DOING)/, `- $1/${newCategory}`);
-        }
+  const document = await vscode.workspace.openTextDocument(vscode.Uri.file(task.location.link.filePath()));
+  const edit = new vscode.WorkspaceEdit();
+  const line = document.lineAt(task.location.row);
+  let newText = line.text;
+
+  const currentGroup = task.parseGroup();
+
+  if (newCategory === 'Inbox' || newCategory === '') {
+    // Remove category
+    if (currentGroup) {
+      newText = newText.replace(`/${currentGroup}`, ``);
     }
-    
-    edit.replace(document.uri, line.range, newText);
-    await vscode.workspace.applyEdit(edit);
+  } else {
+    // Add or change category
+    if (currentGroup) {
+      newText = newText.replace(`/${currentGroup}`, `/${newCategory}`);
+    } else {
+      // Insert category after TODO/DOING
+      newText = newText.replace(/- (TODO|DOING)/, `- $1/${newCategory}`);
+    }
+  }
+
+  edit.replace(document.uri, line.range, newText);
+  await vscode.workspace.applyEdit(edit);
 };

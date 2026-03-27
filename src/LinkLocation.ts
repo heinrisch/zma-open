@@ -38,16 +38,14 @@ export enum LinkType {
   LINK,
   HREF,
   HASHTAG,
-  HEADING,
-  UNLINKED
+  HEADING
 }
 
 export const LinkTypeData = {
   [LinkType.LINK]: { name: 'link' },
   [LinkType.HREF]: { name: 'href' },
   [LinkType.HASHTAG]: { name: 'hashtag' },
-  [LinkType.HEADING]: { name: 'heading' },
-  [LinkType.UNLINKED]: { name: 'unlinked' },
+  [LinkType.HEADING]: { name: 'heading' }
  };
 
 export function parseDate(dateString: string): Date | null {

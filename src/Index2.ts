@@ -156,24 +156,28 @@ export class Index2 {
     this._urlForLinkRaw = null;
   }
 
+  public findUnlinkedMentions(linkName: string): LinkLocation[] {
+    const results: LinkLocation[] = [];
+    const regex = new RegExp(`(?<!\\[)${escapeRegExp(linkName)}(?!\\])`, 'g');
+
+    this.allFiles()
+      .filter(file => file.content.includes(linkName))
+      .forEach(file => {
+        const matches = regexMatches(regex, file.content);
+        matches.forEach(match => {
+          results.push(LinkLocation.create(file.content, Link.fromRawLink(linkName), file.link, match.row, match.column, LinkType.LINK));
+        });
+      });
+
+    return results;
+  }
+
   public getStats() {
     const files = this.allFiles();
     const linkLocations = this.linkLocations();
 
     const totalFiles = files.length;
     const totalExplicitLinks = linkLocations.filter(ll => ll.type === LinkType.LINK).length;
-    const totalUnlinkedMatches = linkLocations.filter(ll => ll.type === LinkType.UNLINKED).length;
-
-    // Group unlinked matches by target link
-    const unlinkedCountMap = new Map<string, number>();
-    linkLocations.filter(ll => ll.type === LinkType.UNLINKED).forEach(ll => {
-      const name = ll.link.linkName();
-      unlinkedCountMap.set(name, (unlinkedCountMap.get(name) || 0) + 1);
-    });
-
-    const topUnlinked = Array.from(unlinkedCountMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10);
 
     // Group explicit links by source file
     const fileLinkCountMap = new Map<string, number>();
@@ -191,8 +195,6 @@ export class Index2 {
     return {
       totalFiles,
       totalExplicitLinks,
-      totalUnlinkedMatches,
-      topUnlinked,
       topFilesByLinks,
       memory: {
         heapUsed: (memoryUsage.heapUsed / 1024 / 1024).toFixed(2),
@@ -255,24 +257,6 @@ export async function reindex2() {
 
   index.isCompleted = true;
   globalIndex2 = index;
-
-  index.allLinksRaw().forEach(lookForLinkRaw => {
-    index.allFiles()
-      .filter(file => file.content.includes(lookForLinkRaw))
-      .forEach(file => {
-        const regex = new RegExp(`(?<!\\[)${escapeRegExp(lookForLinkRaw)}(?!\\])`, 'g');
-
-        const matches = regexMatches(regex, file.content);
-
-        matches.forEach(match => {
-          file.linkLocations.push(LinkLocation.create(file.content, Link.fromRawLink(lookForLinkRaw), file.link, match.row, match.column, LinkType.UNLINKED));
-        });
-      });
-  });
-
-  index.clearCache();
-
-  stopwatch.lap('Added backlinks for unlinked links');
 
   await addLinkAliasAndTagHeaders(index);
 

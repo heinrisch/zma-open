@@ -47,7 +47,7 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
   const maxDaysAgo = Math.min(Math.max(...top50completion.map(([, scores]) => scores[2]), 1), dayLimit);
 
   const completionItems: CompletionItem[] = top50completion
-    .map(([a, scores]): [AutocompleteItem, number[]]  => {
+    .map(([a, scores]): [AutocompleteItem, number[]] => {
       const occuranceWeight = (scores[1] / maxOccurances) * 0.25 + 0.75;
       const daysAgoWeight = (1 - (scores[2] / maxDaysAgo)) * 0.25 + 0.75;
 
@@ -117,10 +117,9 @@ const linkTypeToAutocompleteType = (lt: LinkType): AutocompleteType => {
 };
 
 export const buildAutocompleteItems = (index: Index2): AutocompleteItem[] => {
-  const lls = index.linkLocations().filter(ll => ll.type !== LinkType.UNLINKED).map(ll => new AutocompleteItem(ll.link.linkName(), linkTypeToAutocompleteType(ll.type)));
+  const lls = index.linkLocations().map(ll => new AutocompleteItem(ll.link.linkName(), linkTypeToAutocompleteType(ll.type)));
   const files = index.allFiles().map(f => new AutocompleteItem(f.link.linkName(), AutocompleteType.LINK));
   let items = [...lls, ...files, ...autocompleteStatics()];
-
 
   const visited = new Set<string>();
   items = items.filter(aci => {
@@ -133,8 +132,6 @@ export const buildAutocompleteItems = (index: Index2): AutocompleteItem[] => {
 
   return items;
 };
-
-
 
 function autocompleteStatics(): AutocompleteItem[] {
   const statics: AutocompleteItem[] = [];
