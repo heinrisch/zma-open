@@ -10,6 +10,7 @@ import { escapeRegExp } from './Util';
 import { readLastEditIndexFromFile } from './LastEditHandler';
 import { readTagIndexFromFile, getTagsForLink, removeTagsForLink } from './TagHandler';
 import { sharedLinkShortener } from './HrefShortener';
+import { ReindexStatus } from './ReindexStatus';
 
 export class ZmaFile {
   constructor(
@@ -206,38 +207,42 @@ export const sharedIndex2 = () => {
 };
 
 export async function reindex2() {
+  const reindexStatus = ReindexStatus.getInstance();
+  reindexStatus.setReindexing();
+
   const stopwatch = new Stopwatch('Reindex 2');
 
-  await vscode.workspace.saveAll();
+  try {
+    await vscode.workspace.saveAll();
 
-  const index = new Index2();
+    const index = new Index2();
 
-  const pagesFolderUri = vscode.Uri.file(pagesFolderPath()!);
+    const pagesFolderUri = vscode.Uri.file(pagesFolderPath()!);
 
-  stopwatch.lap('Initialized');
+    stopwatch.lap('Initialized');
 
-  await traverseFolder(pagesFolderUri, index);
-  stopwatch.lap('Traversed pages');
+    await traverseFolder(pagesFolderUri, index);
+    stopwatch.lap('Traversed pages');
 
-  readLastEditIndexFromFile();
-  stopwatch.lap('Reindexed lastEdit');
+    readLastEditIndexFromFile();
+    stopwatch.lap('Reindexed lastEdit');
 
-  readTagIndexFromFile();
-  stopwatch.lap('Reindexed tags');
+    readTagIndexFromFile();
+    stopwatch.lap('Reindexed tags');
 
-  index.isCompleted = true;
-  globalIndex2 = index;
+    index.isCompleted = true;
+    globalIndex2 = index;
 
-  await addLinkAliasAndTagHeaders(index);
+    await addLinkAliasAndTagHeaders(index);
 
-  stopwatch.lap('link:: and tags:: headers');
+    stopwatch.lap('link:: and tags:: headers');
 
-  const memoryUsage = process.memoryUsage();
-  const heapUsage = (memoryUsage.heapUsed / 1024 / 1024).toFixed(2);
-  console.log(`Reindex completed (${heapUsage} MB heap memory)`);
-
-  stopwatch.stop();
-  stopwatch.printResults();
+    stopwatch.stop();
+    reindexStatus.setCompleted(stopwatch.getTotalTimeMs());
+  } catch (error) {
+    reindexStatus.setError();
+    throw error;
+  }
 }
 
 async function traverseFolder(folderPath: vscode.Uri, index: Index2): Promise<void> {

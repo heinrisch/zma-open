@@ -12,9 +12,7 @@ import { RegexPatterns } from './RegexPatterns';
 export const activateCommands = (context: vscode.ExtensionContext, resetProviders: () => void) => {
   context.subscriptions.push(
     vscode.commands.registerCommand('zma.reindex', async () => {
-      void vscode.window.setStatusBarMessage('Reindex zma', 5000);
       await reindex2();
-      void vscode.window.setStatusBarMessage('Reindex done!', 5000);
     })
   );
 

@@ -7,7 +7,7 @@ export class Location {
     public link: Link,
     public row: number,
     public column: number,
-  ) {}
+  ) { }
 }
 
 export class LinkLocation {
@@ -17,7 +17,7 @@ export class LinkLocation {
     public type: LinkType,
     public url: string | null,
     public context: Context,
-  ) {}
+  ) { }
 
   static create(
     fileContent: string,
@@ -46,7 +46,7 @@ export const LinkTypeData = {
   [LinkType.HREF]: { name: 'href' },
   [LinkType.HASHTAG]: { name: 'hashtag' },
   [LinkType.HEADING]: { name: 'heading' }
- };
+};
 
 export function parseDate(dateString: string): Date | null {
   const regex = /^\d{4}-\d{2}-\d{2}$/;
@@ -78,7 +78,7 @@ export class Context {
 }
 
 export const contextForRow = (sourceLink: Link, destinationLinkRaw: string, fileContent: string, rowNumber: number): Context => {
-  if(fileContent === 'bla') {
+  if (fileContent === 'bla') {
     return new Context([], null, 2, "", "");
   }
 

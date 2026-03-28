@@ -21,29 +21,41 @@ export function activateTodayIndicator() {
     return today === currentFile;
   }
 
-  // Example logic: Update when the active editor changes
-  vscode.window.onDidChangeActiveTextEditor((editor) => {
+  function updateStatusBarItem(editor: vscode.TextEditor | undefined) {
     if (editor) {
       if (isTodayFile(editor)) {
-        statusBarItem.text = `📅 Today`;
-        statusBarItem.backgroundColor = undefined; // Default color
+        statusBarItem.text = `$(calendar)`;
+        statusBarItem.tooltip = `Today's file`;
+        statusBarItem.color = '#22c55e';
+        statusBarItem.backgroundColor = undefined;
       } else {
-        statusBarItem.text = `❌ Not Today`;
-        statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground'); 
+        statusBarItem.text = `$(calendar)`;
+        statusBarItem.tooltip = `Not today's file`;
+        statusBarItem.color = '#ef4444';
+        statusBarItem.backgroundColor = undefined;
       }
 
       statusBarItem.show();
+    } else {
+      statusBarItem.hide();
     }
+  }
+
+  // Initial check
+  updateStatusBarItem(vscode.window.activeTextEditor);
+
+  vscode.window.onDidChangeActiveTextEditor((editor) => {
+    updateStatusBarItem(editor);
   });
 
   let flashTimeout: string | number | NodeJS.Timeout | undefined;
 
   function flashEffect() {
-    statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground'); 
+    statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground'); 
     clearTimeout(flashTimeout);
     flashTimeout = setTimeout(() => {
-      statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground'); // Reset color
-    }, 50);
+      statusBarItem.backgroundColor = undefined;
+    }, 100);
   }
 
   vscode.workspace.onDidChangeTextDocument(() => {

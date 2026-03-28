@@ -22,6 +22,14 @@ export class Stopwatch {
         this.lap('stop');
     }
 
+    getTotalTimeMs(): number {
+        let total = 0;
+        this.laps.forEach(lap => {
+            total += lap.time;
+        });
+        return total;
+    }
+
     printResults() {
         let results = `Results for ${this.name}:\n`;
         let total = 0;
