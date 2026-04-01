@@ -3,14 +3,14 @@ import { Disposable, QuickPickItem, Uri, window, workspace } from 'vscode';
 import { bestAlias } from './Alias';
 import { Link } from './Link';
 import { ScoringUtils } from './ScoringUtils';
-import { reindex2, sharedIndex2 } from './Index2';
+import { sharedIndex2, updateFile } from './Index2';
 
 export const createFileIfNotExists = async (uri: Uri) => {
   try {
     await vscode.workspace.fs.readFile(uri);
   } catch {
     await vscode.workspace.fs.writeFile(uri, new Uint8Array());
-    await reindex2();
+    await updateFile(uri.fsPath, '');
   }
 };
 

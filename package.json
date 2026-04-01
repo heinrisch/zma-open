@@ -62,6 +62,10 @@
         "title": "ZMA: Reindex"
       },
       {
+        "command": "zma.reload",
+        "title": "ZMA: Reload"
+      },
+      {
         "command": "zma.yesterday",
         "title": "ZMA: Yesterday"
       },

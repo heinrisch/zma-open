@@ -13,7 +13,7 @@ import { HashTagProvider } from './HashtagExplorer';
 import { TextDocumentContentChangeEvent } from 'vscode';
 import { activateDocumentSymbolProvider } from './SymbolProvidor';
 import { activateTodayIndicator } from './TodayIndicator';
-import { processMdFile, reindex2, sharedIndex2 } from './Index2';
+import { reload2, reindex2, sharedIndex2, updateFile, removeFile } from './Index2';
 import { activateCliActions } from './CliAction';
 import { activateLlmActions } from './LlmActions';
 import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
@@ -82,9 +82,9 @@ async function activateFeatures(context: vscode.ExtensionContext) {
     return;
   }
   hasActivatedFeatures = true;
-  console.log('ZMA: Starting reindex2()');
-  await reindex2();
-  console.log('ZMA: reindex2() completed');
+  console.log('ZMA: Starting reload2()');
+  await reload2();
+  console.log('ZMA: reload2() completed');
 
   activateListEditing(context);
   activateKeyboardShortcuts(context);
@@ -139,12 +139,15 @@ async function activateFeatures(context: vscode.ExtensionContext) {
     await linkToMarkdownConversion(event);
   });
 
-  vscode.workspace.onDidSaveTextDocument(async (document) => {
-    const fileContent = document.getText();
+  context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(async (document) => {
     const filePath = document.uri.fsPath;
+    if (!filePath.endsWith('.md') && !filePath.endsWith('.markdown')) { return; }
 
-    const zmaFile = await processMdFile(fileContent, filePath);
-    sharedIndex2().addFile(zmaFile);
+    const fileContent = document.getText();
+
+    await updateFile(filePath, fileContent);
+
+    const zmaFile = sharedIndex2().fileForFilePath(filePath)!;
 
     updateLastEdit(zmaFile);
 
@@ -153,7 +156,51 @@ async function activateFeatures(context: vscode.ExtensionContext) {
     taskExplorerProvider.refresh();
     taskManagementProvider.refresh();
     TaskManagementPanel.currentPanel?.refresh();
-  });
+  }));
+
+  context.subscriptions.push(vscode.workspace.onDidDeleteFiles((event) => {
+    let changed = false;
+    for (const fileUri of event.files) {
+      if (fileUri.fsPath.endsWith('.md') || fileUri.fsPath.endsWith('.markdown')) {
+        removeFile(fileUri.fsPath);
+        changed = true;
+      }
+    }
+    if (changed) {
+      backlinkProvider.refresh();
+      hashtagNodeProvider.refresh();
+      taskExplorerProvider.refresh();
+      taskManagementProvider.refresh();
+      TaskManagementPanel.currentPanel?.refresh();
+    }
+  }));
+
+  context.subscriptions.push(vscode.workspace.onDidRenameFiles(async (event) => {
+    let changed = false;
+    for (const file of event.files) {
+      if (file.oldUri.fsPath.endsWith('.md') || file.oldUri.fsPath.endsWith('.markdown')) {
+        removeFile(file.oldUri.fsPath);
+        changed = true;
+      }
+      if (file.newUri.fsPath.endsWith('.md') || file.newUri.fsPath.endsWith('.markdown')) {
+        try {
+          const fileBuffer = await vscode.workspace.fs.readFile(file.newUri);
+          const fileContent = new TextDecoder().decode(fileBuffer);
+          await updateFile(file.newUri.fsPath, fileContent);
+          changed = true;
+        } catch (e) {
+          console.error('Error reading renamed file:', e);
+        }
+      }
+    }
+    if (changed) {
+      backlinkProvider.refresh();
+      hashtagNodeProvider.refresh();
+      taskExplorerProvider.refresh();
+      taskManagementProvider.refresh();
+      TaskManagementPanel.currentPanel?.refresh();
+    }
+  }));
 }
 
 async function linkToMarkdownConversion(event: vscode.TextDocumentChangeEvent): Promise<void> {

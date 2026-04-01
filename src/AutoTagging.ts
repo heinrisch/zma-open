@@ -142,7 +142,7 @@ async function autoTagLink(linkName: string, showNotification: boolean = true) {
     const file = index.allFiles().find(f => f.link.linkName() === linkName);
     if (file) {
         try {
-            fileContent = fs.readFileSync(file.link.filePath(), 'utf8');
+            fileContent = await file.link.fileContent() || '';
         } catch (e) {
             console.error(`Failed to read file for ${linkName}:`, e);
         }

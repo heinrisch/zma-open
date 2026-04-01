@@ -5,7 +5,7 @@ import { formatAllFiles } from './MarkdownFormatter';
 import { createFileIfNotExists, quickOpenLink } from './QuickOpenLink';
 import { quickOpenHref } from './QuickOpenHref';
 import { remakeLastEditIndex } from './LastEditHandler';
-import { reindex2, sharedIndex2 } from './Index2';
+import { reload2, reindex2, sharedIndex2 } from './Index2';
 import { getTagsForLink, setTagsForLink, removeTagsForLink, getAllTags } from './TagHandler';
 import { RegexPatterns } from './RegexPatterns';
 
@@ -13,6 +13,14 @@ export const activateCommands = (context: vscode.ExtensionContext, resetProvider
   context.subscriptions.push(
     vscode.commands.registerCommand('zma.reindex', async () => {
       await reindex2();
+      resetProviders();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('zma.reload', async () => {
+      await reload2();
+      resetProviders();
     })
   );
 

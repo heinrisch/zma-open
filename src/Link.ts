@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import { sharedIndex2, pagesFolderPath, workspaceFolderPath } from './Index2';
+import { sharedIndex2, pagesFolderPath, workspaceFolderPath, FileStore } from './Index2';
 
 const _rawToFilePath: Map<string, string> = new Map();
 
@@ -48,13 +48,14 @@ export class Link {
     return fs.existsSync(filePath);
   }
 
-  public fileContent(): string | null {
+  public async fileContent(): Promise<string | null> {
     if (!this.fileExists()) {
       return null;
     }
 
     const filePath = this.filePath();
-    return fs.readFileSync(filePath, 'utf-8');
+    const content = await FileStore.getInstance().get(filePath);
+    return content || null;
   }
 
   public relativeFilePath(): string {

@@ -104,7 +104,7 @@ export class ReferencesDocumentProvider implements vscode.TextDocumentContentPro
 
     private async getSummaryForFile(link: Link): Promise<string | null> {
         try {
-            const content = link.fileContent();
+            const content = await link.fileContent();
             if (!content) { return null; }
 
             const config = loadLlmConfig();

@@ -24,6 +24,75 @@ export class ZmaFile {
   }
 }
 
+export class FileStore {
+  private static instance: FileStore;
+  private files: Map<string, string> = new Map();
+
+  private constructor() { }
+
+  public static getInstance(): FileStore {
+    if (!FileStore.instance) {
+      FileStore.instance = new FileStore();
+    }
+    return FileStore.instance;
+  }
+
+  public async loadAll(): Promise<void> {
+    const pagesFolder = pagesFolderPath();
+    if (!pagesFolder) { return; }
+
+    const folderUri = vscode.Uri.file(pagesFolder);
+    const pattern = new vscode.RelativePattern(folderUri, '**/*.{md,markdown}');
+    const files = await vscode.workspace.findFiles(pattern);
+
+    this.files.clear();
+
+    const batchSize = 50;
+    for (let i = 0; i < files.length; i += batchSize) {
+      const batch = files.slice(i, i + batchSize);
+      await Promise.all(batch.map(async (fileUri) => {
+        try {
+          const fileBuffer = await vscode.workspace.fs.readFile(fileUri);
+          const fileContent = new TextDecoder().decode(fileBuffer);
+
+          const preprocessedContent = await preprocessMdFile(fileContent, fileUri.fsPath);
+          this.files.set(fileUri.fsPath, preprocessedContent);
+        } catch (fileReadError) {
+          const fileName = path.basename(fileUri.fsPath);
+          void vscode.window.showErrorMessage(`Error loading file ${fileName}: ${fileReadError}`);
+        }
+      }));
+    }
+  }
+
+  public update(filePath: string, content: string) {
+    this.files.set(filePath, content);
+  }
+
+  public remove(filePath: string) {
+    this.files.delete(filePath);
+  }
+
+  public getAll(): Map<string, string> {
+    return new Map(this.files);
+  }
+
+  public async get(filePath: string): Promise<string | undefined> {
+    if (this.files.has(filePath)) {
+      return this.files.get(filePath);
+    }
+    try {
+      const fileBuffer = await vscode.workspace.fs.readFile(vscode.Uri.file(filePath));
+      const fileContent = new TextDecoder().decode(fileBuffer);
+      const preprocessedContent = await preprocessMdFile(fileContent, filePath);
+      this.files.set(filePath, preprocessedContent);
+      return preprocessedContent;
+    } catch (e) {
+      return undefined;
+    }
+  }
+}
+
 export class Index2 {
   public isCompleted: boolean = false;
   private files: Map<string, ZmaFile> = new Map();
@@ -38,6 +107,11 @@ export class Index2 {
 
   public addFile(zmaFile: ZmaFile) {
     this.files.set(zmaFile.link.linkName(), zmaFile);
+    this.clearCache();
+  }
+
+  public removeFile(linkName: string) {
+    this.files.delete(linkName);
     this.clearCache();
   }
 
@@ -206,38 +280,27 @@ export const sharedIndex2 = () => {
   return globalIndex2!;
 };
 
-export async function reindex2() {
+export async function reload2() {
   const reindexStatus = ReindexStatus.getInstance();
   reindexStatus.setReindexing();
 
-  const stopwatch = new Stopwatch('Reindex 2');
+  const stopwatch = new Stopwatch('Reload (Disk -> Memory)');
 
   try {
     await vscode.workspace.saveAll();
 
-    const index = new Index2();
+    const fileStore = FileStore.getInstance();
+    await fileStore.loadAll();
+    stopwatch.lap('Disk files loaded and preprocessed');
 
-    const pagesFolderUri = vscode.Uri.file(pagesFolderPath()!);
+    await reindex2();
+    stopwatch.lap('Initial parse completed');
 
-    stopwatch.lap('Initialized');
-
-    await traverseFolder(pagesFolderUri, index);
-    stopwatch.lap('Traversed pages');
-
-    readLastEditIndexFromFile();
-    stopwatch.lap('Reindexed lastEdit');
-
-    readTagIndexFromFile();
-    stopwatch.lap('Reindexed tags');
-
-    index.isCompleted = true;
-    globalIndex2 = index;
-
-    await addLinkAliasAndTagHeaders(index);
-
+    await addLinkAliasAndTagHeaders(sharedIndex2());
     stopwatch.lap('link:: and tags:: headers');
 
     stopwatch.stop();
+    stopwatch.printResults();
     reindexStatus.setCompleted(stopwatch.getTotalTimeMs());
   } catch (error) {
     reindexStatus.setError();
@@ -245,27 +308,50 @@ export async function reindex2() {
   }
 }
 
-async function traverseFolder(folderPath: vscode.Uri, index: Index2): Promise<void> {
-  const pattern = new vscode.RelativePattern(folderPath, '**/*.{md,markdown}');
-  const files = await vscode.workspace.findFiles(pattern);
+export async function reindex2() {
+  const reindexStatus = ReindexStatus.getInstance();
+  reindexStatus.setReindexing();
 
-  const batchSize = 50;
-  for (let i = 0; i < files.length; i += batchSize) {
-    const batch = files.slice(i, i + batchSize);
-    await Promise.all(batch.map(async (fileUri) => {
-      try {
-        const fileBuffer = await vscode.workspace.fs.readFile(fileUri);
-        const fileContent = new TextDecoder().decode(fileBuffer);
+  const stopwatch = new Stopwatch('Reindex 2 (Memory -> Index)');
+  const fileStore = FileStore.getInstance();
+  const index = new Index2();
 
-        const preprocessedContent = await preprocessMdFile(fileContent, fileUri.fsPath);
-        const zmaFile = await processMdFile(preprocessedContent, fileUri.fsPath);
-        index.addFile(zmaFile);
-      } catch (fileReadError) {
-        const fileName = path.basename(fileUri.fsPath);
-        void vscode.window.showErrorMessage(`Error processing file ${fileName}: ${fileReadError}`);
-      }
-    }));
+  const files = fileStore.getAll();
+  for (const [filePath, content] of files) {
+    const zmaFile = await processMdFile(content, filePath);
+    index.addFile(zmaFile);
   }
+  stopwatch.lap('Parsed all files');
+
+  readLastEditIndexFromFile();
+  stopwatch.lap('Reindexed lastEdit');
+
+  readTagIndexFromFile();
+  stopwatch.lap('Reindexed tags');
+
+  index.isCompleted = true;
+  globalIndex2 = index;
+
+  stopwatch.stop();
+  stopwatch.printResults();
+  reindexStatus.setCompleted(stopwatch.getTotalTimeMs());
+}
+
+export async function updateFile(filePath: string, content: string) {
+  const fileStore = FileStore.getInstance();
+  const preprocessedContent = await preprocessMdFile(content, filePath);
+  fileStore.update(filePath, preprocessedContent);
+
+  const zmaFile = await processMdFile(preprocessedContent, filePath);
+  sharedIndex2().addFile(zmaFile);
+}
+
+export function removeFile(filePath: string) {
+  const fileStore = FileStore.getInstance();
+  fileStore.remove(filePath);
+
+  const link = Link.fromFilePath(filePath);
+  sharedIndex2().removeFile(link.linkName());
 }
 
 async function preprocessMdFile(fileContent: string, filePath: string): Promise<string> {
@@ -342,49 +428,53 @@ export async function processMdFile(fileContent: string, filePath: string): Prom
 }
 
 async function addLinkAliasAndTagHeaders(index: Index2) {
-  index.linkLocations().filter(ll => ll.type === LinkType.HREF && ll.url).filter(ll => ll.link.fileExists()).forEach(async ll => {
+  const fileStore = FileStore.getInstance();
+
+  for (const ll of index.linkLocations().filter(ll => ll.type === LinkType.HREF && ll.url)) {
+    if (!ll.link.fileExists()) { continue; }
+
+    const filePath = ll.link.filePath();
+    const content = await fileStore.get(filePath);
+    if (!content) { continue; }
+
     const link = ll.link;
     const url = ll.url;
-    const uri = vscode.Uri.file(ll.link.filePath());
-    const content = await vscode.workspace.fs.readFile(uri);
-    let contentString = content.toString();
-
     const linkHeader = `link:: [${link.linkName()}](${url})`;
-    if (!contentString.includes(linkHeader)) {
-      contentString = linkHeader + '\n' + contentString;
-    }
 
-    if (contentString !== content.toString()) {
-      await vscode.workspace.fs.writeFile(uri, Buffer.from(contentString));
+    if (!content.includes(linkHeader)) {
+      const newContent = linkHeader + '\n' + content;
+      await vscode.workspace.fs.writeFile(vscode.Uri.file(filePath), new TextEncoder().encode(newContent));
+      await updateFile(filePath, newContent);
     }
-  });
+  }
 
   for (const file of index.allFiles()) {
     const linkName = file.link.linkName();
     const tagsInFile = file.tags;
-
     const tagsFromIndex = getTagsForLink(linkName);
 
     if (tagsFromIndex.length > 0) {
-      const uri = vscode.Uri.file(file.link.filePath());
-      const content = await vscode.workspace.fs.readFile(uri);
-      let contentString = content.toString();
+      const filePath = file.link.filePath();
+      const content = await fileStore.get(filePath);
+      if (!content) { continue; }
 
       const allTags = Array.from(new Set([...tagsInFile, ...tagsFromIndex]));
-
       const tagsHeader = `tags:: ${allTags.join(', ')}`;
 
-      const existingTagsMatch = contentString.match(RegexPatterns.RE_TAGS());
+      let newContent: string;
+      const existingTagsMatch = content.match(RegexPatterns.RE_TAGS());
 
       if (existingTagsMatch) {
-        contentString = contentString.replace(RegexPatterns.RE_TAGS(), tagsHeader);
+        newContent = content.replace(RegexPatterns.RE_TAGS(), tagsHeader);
       } else {
-        contentString = tagsHeader + '\n' + contentString;
+        newContent = tagsHeader + '\n' + content;
       }
 
-      await vscode.workspace.fs.writeFile(uri, Buffer.from(contentString));
-
-      removeTagsForLink(linkName, true);
+      if (newContent !== content) {
+        await vscode.workspace.fs.writeFile(vscode.Uri.file(filePath), new TextEncoder().encode(newContent));
+        await updateFile(filePath, newContent);
+        removeTagsForLink(linkName, true);
+      }
     }
   }
 }
