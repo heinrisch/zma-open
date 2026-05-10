@@ -13,6 +13,7 @@
   "activationEvents": [
     "onLanguage:markdown",
     "onCommand:zma.init",
+    "onCommand:zma.spellCheck",
     "onCommand:zma.inlineFold.toggleMarkdownUrls",
     "onCommand:zma.openTaskManagement"
   ],
@@ -124,6 +125,10 @@
       {
         "command": "zma.runLlmAction",
         "title": "ZMA: Run LLM Action"
+      },
+      {
+        "command": "zma.spellCheck",
+        "title": "ZMA: Spell Check"
       },
       {
         "command": "zma.inlineFold.toggleMarkdownUrls",

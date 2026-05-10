@@ -47,6 +47,7 @@ Commands can be accessed via the VS Code Command Palette (`Ctrl+Shift+P` or `Cmd
 ### AI Commands
 
 *   **ZMA: Run LLM Action** (`zma.runLlmAction`): Executes a predefined LLM action.
+*   **ZMA: Spell Check** (`zma.spellCheck`): Runs the current note through the configured LLM to correct spelling and small grammar mistakes in US English.
 *   **ZMA: Auto Tag Link (LLM)** (`zma.autoTagLink`): Uses LLM to generate tags for a link.
 *   **ZMA: Auto Tag Next Untagged Link** (`zma.autoTagNextUntagged`): Finds the next untagged link and auto-tags it.
 
