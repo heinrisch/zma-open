@@ -300,7 +300,7 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "watch": "npm run watch-ts",
+    "watch": "npm run esbuild-watch",
     "watch-ts": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",

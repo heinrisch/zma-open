@@ -1,6 +1,7 @@
 {
 	"compilerOptions": {
-		"module": "commonjs",
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
 		"target": "es2020",
 		"lib": [
 			"es2022",
@@ -10,7 +11,6 @@
 		"sourceMap": true,
 		"strict": true,
 		"rootDir": "src",
-		"moduleResolution": "node",
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true,
 		"types": [

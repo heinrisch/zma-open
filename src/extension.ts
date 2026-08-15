@@ -21,9 +21,9 @@ import { activateInsertDocument } from './InsertDocument';
 import { activateAutoTagging } from './AutoTagging';
 import { activateShortLinkProvider } from './ShortLinkProvider';
 import { activateTaskManagement, TaskManagementPanel } from './TaskManagement';
-import { activateTaskExplorer, activateTaskManagementWebView } from './Tasks';
 import { activateReferencesDocumentProvider } from './ReferencesDocumentProvider';
 import { activateRenameProvider } from './RenameProvider';
+import { activateTaskManagementWebView } from './Tasks';
 
 
 
@@ -111,13 +111,11 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   const hashtagNodeProvider = new HashTagProvider();
   vscode.window.registerTreeDataProvider('pageHashtags', hashtagNodeProvider);
 
-  const taskExplorerProvider = activateTaskExplorer(context);
   const taskManagementProvider = activateTaskManagementWebView(context);
 
   activateCommands(context, () => {
     backlinkProvider.refresh();
     hashtagNodeProvider.refresh();
-    taskExplorerProvider.refresh();
     taskManagementProvider.refresh();
   });
 
@@ -153,7 +151,6 @@ async function activateFeatures(context: vscode.ExtensionContext) {
 
     backlinkProvider.refresh();
     hashtagNodeProvider.refresh();
-    taskExplorerProvider.refresh();
     taskManagementProvider.refresh();
     TaskManagementPanel.currentPanel?.refresh();
   }));
@@ -169,7 +166,6 @@ async function activateFeatures(context: vscode.ExtensionContext) {
     if (changed) {
       backlinkProvider.refresh();
       hashtagNodeProvider.refresh();
-      taskExplorerProvider.refresh();
       taskManagementProvider.refresh();
       TaskManagementPanel.currentPanel?.refresh();
     }
@@ -196,7 +192,6 @@ async function activateFeatures(context: vscode.ExtensionContext) {
     if (changed) {
       backlinkProvider.refresh();
       hashtagNodeProvider.refresh();
-      taskExplorerProvider.refresh();
       taskManagementProvider.refresh();
       TaskManagementPanel.currentPanel?.refresh();
     }
