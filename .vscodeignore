@@ -4,6 +4,9 @@
 src/**
 **/*.ts
 
+# Exclude the sample vault (development/testing only)
+sample_vault/**
+
 # Exclude all compiled files except main.js
 out/**
 !out/main.js
@@ -22,6 +25,8 @@ vsc-extension-quickstart.md
 **/.vscode-test.*
 build_all.sh
 restore_links.py
+generate_sample_vault.py
+eslint.config.mjs
 
 # Exclude config files (users should create their own)
 llm-config.json
@@ -35,6 +40,12 @@ node_modules/**
 .git/**
 .github/**
 .gitignore
+
+# Exclude AI/agent tooling configs (development only)
+.agent/**
+.claude/**
+.gemini/**
+.codex
 
 # Exclude old VSIX files
 *.vsix
