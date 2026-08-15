@@ -2,8 +2,9 @@ import * as vscode from 'vscode';
 import { DocumentSelector, ExtensionContext, Uri, languages } from 'vscode';
 import { bestAlias } from './Alias';
 import { createFileIfNotExists } from './QuickOpenLink';
-import { sharedIndex2 } from './Index2';
+import { processMdFile, sharedIndex2 } from './Index2';
 import { Link } from './Link';
+import { findLinkAtCursor, LinkType } from './LinkLocation';
 
 const Document_Selector_Markdown: DocumentSelector = [
   { language: 'markdown', scheme: 'file' },
@@ -19,14 +20,20 @@ export function activateDefinitionProvider(context: ExtensionContext) {
 class MarkdownDefinitionProvider implements vscode.DefinitionProvider {
   public provideDefinition(document: vscode.TextDocument, position: vscode.Position): Thenable<vscode.Location> {
     return new Promise<vscode.Location>((resolve, reject) => {
-      const wordPattern = /(\[{1,}[^\]]*\]{1,})/;
-      const wordRange = document.getWordRangeAtPosition(position, wordPattern);
-      if (!wordRange) {
+      // Parse the current document the same way the index does, so
+      // [[links]], @[persons] and [hrefs](url) are all recognized.
+      const text = document.getText();
+      const zmaFile = processMdFile(text, document.uri.path);
+
+      const atCursor = findLinkAtCursor(zmaFile.linkLocations, document, position,
+        [LinkType.LINK, LinkType.PERSON, LinkType.HREF]);
+
+      if (!atCursor) {
         reject();
         return;
       }
-      const word = document.getText(wordRange);
-      let rawLink = word.replace(/\[+/, '').replace(/\]+/, '');
+
+      let rawLink = atCursor.link.linkName();
       rawLink = bestAlias(rawLink);
 
       const hasLink = sharedIndex2().allLinksRaw().has(rawLink);

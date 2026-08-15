@@ -135,3 +135,39 @@ export const contextForRow = (sourceLink: Link, destinationLinkRaw: string, file
 
   return new Context(headings, date, destinationLinkSpecificity, row, fullContext);
 };
+
+// Offset just past the end of the link's match. HASHTAG/HEADING have a
+// zero-width span.
+export function linkEndOffset(ll: LinkLocation, text: string, start: number): number {
+  switch (ll.type) {
+    case LinkType.LINK: // [[text]]
+      return text.indexOf(']]', start + 2) + 2;
+    case LinkType.PERSON: // @[text]
+      return text.indexOf(']', start + 2) + 1;
+    case LinkType.HREF: { // [text](url)
+      const urlStart = text.indexOf('](', start + 1);
+      const urlEnd = text.indexOf(')', urlStart + 2);
+      return urlEnd + 1;
+    }
+    default:
+      return start;
+  }
+}
+
+// The link whose span contains the cursor, if any. `types` restricts which
+// link kinds are considered (e.g. references/definition skip HASHTAG/HEADING).
+export function findLinkAtCursor(
+  linkLocations: LinkLocation[],
+  document: vscode.TextDocument,
+  position: vscode.Position,
+  types?: LinkType[],
+): LinkLocation | undefined {
+  const text = document.getText();
+  const cursorOffset = document.offsetAt(position);
+  return linkLocations.find(ll => {
+    if (types && !types.includes(ll.type)) { return false; }
+    const start = document.offsetAt(new vscode.Position(ll.location.row, ll.location.column));
+    const end = linkEndOffset(ll, text, start);
+    return cursorOffset >= start && cursorOffset <= end;
+  });
+}
