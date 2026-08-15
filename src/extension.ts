@@ -17,7 +17,6 @@ import { reload2, sharedIndex2, updateFile, removeFile } from './Index2';
 import { activateCliActions } from './CliAction';
 import { activateLlmActions } from './LlmActions';
 import { registerMarkdownInlineUrlFold } from './MarkdownLinkFolder';
-import { activateAutoTagging } from './AutoTagging';
 import { activateShortLinkProvider } from './ShortLinkProvider';
 import { activateTaskManagement, TaskManagementPanel } from './TaskManagement';
 import { activateReferencesDocumentProvider } from './ReferencesDocumentProvider';
@@ -96,7 +95,6 @@ async function activateFeatures(context: vscode.ExtensionContext) {
   activateTodayIndicator();
   activateCliActions(context);
   activateLlmActions(context);
-  activateAutoTagging(context);
   registerMarkdownInlineUrlFold(context);
   activateShortLinkProvider(context);
   activateTaskManagement(context);
