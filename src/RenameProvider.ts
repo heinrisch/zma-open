@@ -1,7 +1,14 @@
 import * as vscode from 'vscode';
-import { sharedIndex2 } from './Index2';
+import { processMdFile, sharedIndex2 } from './Index2';
 import { Link } from './Link';
-import { RegexPatterns } from './RegexPatterns';
+import { findLinkAtCursor, LinkType } from './LinkLocation';
+
+const RENAME_TYPES = [LinkType.LINK, LinkType.PERSON, LinkType.HREF];
+
+// Column offset of the name (inside the brackets) from the link's start column.
+function namePrefixColumn(type: LinkType): number {
+    return type === LinkType.HREF ? 1 : 2; // [name](url) vs [[name]] / @[name]
+}
 
 export function activateRenameProvider(context: vscode.ExtensionContext) {
     context.subscriptions.push(
@@ -19,16 +26,18 @@ class ZmaRenameProvider implements vscode.RenameProvider {
         newName: string,
         token: vscode.CancellationToken
     ): Promise<vscode.WorkspaceEdit | null> {
-        const range = document.getWordRangeAtPosition(position, RegexPatterns.RE_LINKS());
-        if (!range) {
+        // Parse the current document the same way the index does, so
+        // [[links]], @[persons] and [hrefs](url) are all renameable.
+        const text = document.getText();
+        const zmaFile = processMdFile(text, document.uri.path);
+
+        const atCursor = findLinkAtCursor(zmaFile.linkLocations, document, position, RENAME_TYPES);
+        if (!atCursor) {
             return null;
         }
 
-        const oldText = document.getText(range);
-        // Extract the link content from [[...]]
-        const oldLinkName = oldText.replace(/^\[\[/, '').replace(/\]\]$/, '');
+        const oldLinkName = atCursor.link.linkName();
 
-        // Check if newName contains invalid characters or if it's just 'newName' (user didn't change it)
         if (newName === oldLinkName) {
             return null;
         }
@@ -36,17 +45,21 @@ class ZmaRenameProvider implements vscode.RenameProvider {
         const edit = new vscode.WorkspaceEdit();
         const locations = sharedIndex2().linkLocations().filter(ll => ll.link.linkName() === oldLinkName);
 
-        // 1. Rename all references
+        // 1. Rename all references, preserving each reference's own bracket style
         for (const loc of locations) {
-            const uri = vscode.Uri.file(loc.location.link.filePath());
-            const range = new vscode.Range(
-                new vscode.Position(loc.location.row, loc.location.column),
-                new vscode.Position(loc.location.row, loc.location.column + oldText.length)
-            );
+            if (!RENAME_TYPES.includes(loc.type)) { continue; }
 
-            // Preserve original brackets, just replace the name
-            // If the original was [[oldName]], replace with [[newName]]
-            edit.replace(uri, range, `[[${newName}]]`);
+            const nameStartColumn = loc.location.column + namePrefixColumn(loc.type);
+            const nameEndColumn = nameStartColumn + oldLinkName.length;
+
+            edit.replace(
+                vscode.Uri.file(loc.location.link.filePath()),
+                new vscode.Range(
+                    new vscode.Position(loc.location.row, nameStartColumn),
+                    new vscode.Position(loc.location.row, nameEndColumn)
+                ),
+                newName
+            );
         }
 
         // 2. Rename the file if it exists
@@ -65,24 +78,28 @@ class ZmaRenameProvider implements vscode.RenameProvider {
 
         return edit;
     }
+
     prepareRename(
         document: vscode.TextDocument,
         position: vscode.Position,
         token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.Range | { range: vscode.Range, placeholder: string }> {
-        const range = document.getWordRangeAtPosition(position, RegexPatterns.RE_LINKS());
-        if (!range) {
+        const text = document.getText();
+        const zmaFile = processMdFile(text, document.uri.path);
+
+        const atCursor = findLinkAtCursor(zmaFile.linkLocations, document, position, RENAME_TYPES);
+        if (!atCursor) {
             throw new Error('Cannot rename this element');
         }
 
-        const oldText = document.getText(range);
+        const nameStartColumn = atCursor.location.column + namePrefixColumn(atCursor.type);
+        const nameEndColumn = nameStartColumn + atCursor.link.linkName().length;
 
-        const innerRange = new vscode.Range(
-            range.start.translate(0, 2),
-            range.end.translate(0, -2)
+        const range = new vscode.Range(
+            new vscode.Position(atCursor.location.row, nameStartColumn),
+            new vscode.Position(atCursor.location.row, nameEndColumn)
         );
-        const innerText = oldText.replace(/^\[\[/, '').replace(/\]\]$/, '');
 
-        return { range: innerRange, placeholder: innerText };
+        return { range, placeholder: atCursor.link.linkName() };
     }
 }

@@ -3,8 +3,6 @@ import { URLClassifier, AssetType, AssetTypeColors } from './UrlClassifier';
 import { LinkType } from './LinkLocation';
 import { processMdFile, sharedIndex2 } from './Index2';
 
-const LANG_SELECTOR: vscode.DocumentSelector = [{ language: 'markdown', scheme: '*' }];
-
 export class MarkdownInlineUrlFold implements vscode.Disposable {
     private hiddenDeco: vscode.TextEditorDecorationType;
     private weakRevealDeco: vscode.TextEditorDecorationType;

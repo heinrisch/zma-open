@@ -51,7 +51,6 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
 
   const shouldHaveBrackets = openBracketsCount === closeBracketsCount;
 
-  const startTime = Date.now();
   const dayLimit = 14;
 
   const top50completion: [AutocompleteItem, number[]][] = (isPersonSearch ? personItems() : sharedIndex2().autoCompleteItems())
@@ -101,10 +100,6 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
 
       return item;
     });
-
-  const endTime = Date.now();
-  const executionTime = endTime - startTime;
-  console.log(`Autocomplete constructed in ${executionTime}ms`);
 
   return completionItems;
 };

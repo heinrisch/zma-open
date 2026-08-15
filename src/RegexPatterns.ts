@@ -1,7 +1,7 @@
 export class RegexPatterns {
   static RE_SHORTENED_HREF = () => RegExp(/\[[^\]]+\]\(([a-zA-Z0-9]+)\)/gm);
   static RE_LINKS = () => RegExp(/\[\[([^\]]+)\]\]/gm);
-  static RE_PERSON = () => RegExp(/@\[[^\]]+\]/g);
+  static RE_PERSON = () => RegExp(/@\[[^\[\]]+\]/g);
   static RE_HREF = () => RegExp(/\[([^[]+)\]\(([^)]*)\)/gm);
   static RE_HASHTAG = () => RegExp(/(?:^|\s)(#[\w/-]+)/gm);
   static RE_HEADING = () => RegExp(/^(## .+$)/gm);
