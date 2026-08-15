@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { URLClassifier, AssetType, AssetTypeColors } from './UrlClassifier';
-import { Link } from './Link';
-import { sharedIndex2 } from './Index2';
+import { LinkType } from './LinkLocation';
+import { processMdFile, sharedIndex2 } from './Index2';
 
 const LANG_SELECTOR: vscode.DocumentSelector = [{ language: 'markdown', scheme: '*' }];
 
@@ -126,70 +126,65 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
         const weak: vscode.DecorationOptions[] = [];
         const coloredByHex: Map<string, vscode.DecorationOptions[]> = new Map();
 
-        const selection = editor.selection;
-        const selStart = doc.offsetAt(selection.start);
-        const selEnd = doc.offsetAt(selection.end);
         const cursorLine = editor.selection.active.line;
 
-        // Pattern for standard markdown links: [text](url)
-        const markdownRx = /\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+        const zmaFile = processMdFile(text, doc.uri.path);
 
-        // Pattern for wikimarkdown links: [[text]]
-        const wikiRx = /\[\[([^\]]+)\]\]/g;
-
-        // Process standard markdown links
-        for (let m: RegExpExecArray | null = markdownRx.exec(text); m; m = markdownRx.exec(text)) {
-            const linkTextStart = m.index + 1; // After the opening [
-            const linkTextEnd = m.index + m[1].length + 1; // Position after link text
-
-            const urlStartOffset = m.index + m[0].indexOf(m[2]);
-            const urlEndOffset = urlStartOffset + m[2].length;
-
-            const urlRange = new vscode.Range(doc.positionAt(urlStartOffset), doc.positionAt(urlEndOffset));
-            const linkTextRange = new vscode.Range(doc.positionAt(linkTextStart), doc.positionAt(linkTextEnd));
-
-            if (urlRange.start.line === cursorLine || urlRange.end.line === cursorLine) { continue; }
-
-            hidden.push({ range: urlRange });
-
-            const url = m[2];
-            const color = this.getUrlColor(url);
+        const addColored = (color: string, range: vscode.Range) => {
             if (!coloredByHex.has(color)) {
                 coloredByHex.set(color, []);
             }
-            coloredByHex.get(color)!.push({
-                range: linkTextRange,
-            });
-        }
+            coloredByHex.get(color)!.push({ range });
+        };
 
-        // Process wikimarkdown links
-        for (let m: RegExpExecArray | null = wikiRx.exec(text); m; m = wikiRx.exec(text)) {
-            const openBracketStart = m.index; // Position of [[
-            const openBracketEnd = m.index + 2; // After [[
-            const closeBracketStart = m.index + m[0].length - 2; // Before ]]
-            const closeBracketEnd = m.index + m[0].length; // After ]]
+        for (const ll of zmaFile.linkLocations) {
+            const row = ll.location.row;
+            const column = ll.location.column;
+            const startOffset = doc.offsetAt(new vscode.Position(row, column));
 
-            const linkRaw = m[1];
-            const contentStart = openBracketEnd;
-            const contentEnd = closeBracketStart;
+            // Don't fold the line the cursor is on so links stay editable
+            if (row === cursorLine) { continue; }
 
-            const openBracketRange = new vscode.Range(doc.positionAt(openBracketStart), doc.positionAt(openBracketEnd));
-            const closeBracketRange = new vscode.Range(doc.positionAt(closeBracketStart), doc.positionAt(closeBracketEnd));
-            const contentRange = new vscode.Range(doc.positionAt(contentStart), doc.positionAt(contentEnd));
+            switch (ll.type) {
+                case LinkType.HREF: {
+                    // [text](url): hide the URL, color the link text
+                    const linkTextStart = startOffset + 1; // After the opening [
+                    const titleEnd = text.indexOf(']', linkTextStart);
+                    const urlStart = titleEnd + 2; // After ](
+                    const urlEnd = urlStart + (ll.url || '').length;
 
-            if (openBracketRange.start.line === cursorLine || closeBracketRange.end.line === cursorLine) { continue; }
+                    hidden.push({ range: new vscode.Range(doc.positionAt(urlStart), doc.positionAt(urlEnd)) });
+                    addColored(this.getUrlColor(ll.url || ''), new vscode.Range(doc.positionAt(linkTextStart), doc.positionAt(titleEnd)));
+                    break;
+                }
+                case LinkType.LINK: {
+                    // [[text]]: show the brackets dimly, color the content
+                    const openBracketStart = startOffset;
+                    const openBracketEnd = startOffset + 2;
+                    const closeBracketStart = text.indexOf(']]', openBracketEnd);
+                    const closeBracketEnd = closeBracketStart + 2;
 
-            weak.push({ range: openBracketRange });
-            weak.push({ range: closeBracketRange });
+                    weak.push({ range: new vscode.Range(doc.positionAt(openBracketStart), doc.positionAt(openBracketEnd)) });
+                    weak.push({ range: new vscode.Range(doc.positionAt(closeBracketStart), doc.positionAt(closeBracketEnd)) });
 
+                    addColored(this.getLinkColor(ll.link.linkName()), new vscode.Range(doc.positionAt(openBracketEnd), doc.positionAt(closeBracketStart)));
+                    break;
+                }
+                case LinkType.PERSON: {
+                    // @[text]: show the @ and brackets dimly, color the content
+                    const openBracketStart = startOffset; // The @
+                    const openBracketEnd = startOffset + 2; // After @[
+                    const closeBracketStart = text.indexOf(']', openBracketEnd);
+                    const closeBracketEnd = closeBracketStart + 1;
 
-            const color = this.getLinkColor(linkRaw);
-            if (!coloredByHex.has(color)) {
-                coloredByHex.set(color, []);
+                    weak.push({ range: new vscode.Range(doc.positionAt(openBracketStart), doc.positionAt(openBracketEnd)) });
+                    weak.push({ range: new vscode.Range(doc.positionAt(closeBracketStart), doc.positionAt(closeBracketEnd)) });
+
+                    addColored(this.getLinkColor(ll.link.linkName()), new vscode.Range(doc.positionAt(openBracketEnd), doc.positionAt(closeBracketStart)));
+                    break;
+                }
+                // HASHTAG and HEADING links are left as-is
             }
-            coloredByHex.get(color)!.push({
-                range: contentRange,
-            });
         }
 
         editor.setDecorations(this.hiddenDeco, hidden);

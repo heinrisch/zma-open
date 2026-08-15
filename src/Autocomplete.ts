@@ -22,6 +22,28 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
   const lastSpace = lineB.lastIndexOf(' ');
   const text = lineB.slice(lastSpace + 1);
 
+  // Person mentions use @[name]. When the cursor is inside or right after an
+  // @ / @[ prefix, only match persons and fill in the name.
+  const atIndex = textBefore.lastIndexOf('@[');
+  const inPersonBrackets = atIndex !== -1 && textBefore.indexOf(']', atIndex) === -1;
+  const lastAt = textBefore.lastIndexOf('@');
+  const justTypedAt = lastAt !== -1 && textBefore.slice(lastAt).match(/^@[^ ]*$/) !== null;
+
+  let isPersonSearch = false;
+  let personSearch = text;
+  let personReplaceStart = -1;
+  let personInsideBrackets = false;
+  if (inPersonBrackets) {
+    isPersonSearch = true;
+    personInsideBrackets = true;
+    personSearch = textBefore.slice(atIndex + 2);
+    personReplaceStart = atIndex + 2;
+  } else if (justTypedAt) {
+    isPersonSearch = true;
+    personSearch = textBefore.slice(lastAt + 1);
+    personReplaceStart = lastAt + 1;
+  }
+
   const openBracketsCount = (textBefore.match(/\[/g) || []).length;
   const closeBracketsCount = (textBefore.match(/\]/g) || []).length;
 
@@ -32,9 +54,12 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
   const startTime = Date.now();
   const dayLimit = 14;
 
-  const top50completion: [AutocompleteItem, number[]][] = sharedIndex2().autoCompleteItems()
-    .filter((a: AutocompleteItem): boolean => suggestHeader ? a.type === AutocompleteType.HEADER : a.type !== AutocompleteType.HEADER)
-    .map((a): [AutocompleteItem, number] => [a, ScoringUtils.matchScore(text, a.text)])
+  const top50completion: [AutocompleteItem, number[]][] = (isPersonSearch ? personItems() : sharedIndex2().autoCompleteItems())
+    .filter((a: AutocompleteItem): boolean => {
+      if (isPersonSearch) { return a.type === AutocompleteType.PERSON; }
+      return suggestHeader ? a.type === AutocompleteType.HEADER : a.type !== AutocompleteType.HEADER;
+    })
+    .map((a): [AutocompleteItem, number] => [a, ScoringUtils.matchScore(isPersonSearch ? personSearch : text, a.text)])
     .filter(([, score]) => score >= ScoringUtils.minScore)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 50)
@@ -59,13 +84,22 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
       const insert = shouldHaveBrackets
         ? `${AcData[a.type].prefix}${a.completion}${AcData[a.type].suffix}`
         : a.completion;
-      return {
+
+      const item: CompletionItem = {
         label: a.text + ` (${score[0].toFixed(2)} [${score.slice(1, score.length).map(s => s.toFixed(2)).join(', ')}])`,
         insertText: insert,
-        filterText: text, // Was toAutocompleteString(a.text). Trying to override vscode's own filtering
+        filterText: isPersonSearch ? personSearch : text, // Was toAutocompleteString(a.text). Trying to override vscode's own filtering
         kind: AcData[a.type].type,
         sortText: String(index + 1).padStart(2, '0'),
       };
+
+      if (isPersonSearch) {
+        // Replace exactly the typed name so the leading @ / @[ isn't duplicated.
+        item.range = new vscode.Range(position.line, personReplaceStart, position.line, position.character);
+        item.insertText = personInsideBrackets ? a.completion : `[${a.completion}]`;
+      }
+
+      return item;
     });
 
   const endTime = Date.now();
@@ -74,6 +108,22 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
 
   return completionItems;
 };
+
+function personItems(): AutocompleteItem[] {
+  // People who have been mentioned with @[name], deduped by name. Built from
+  // linkLocations directly so a person who is also a regular link isn't dropped
+  // by the type-agnostic dedup in buildAutocompleteItems.
+  const visited = new Set<string>();
+  const items: AutocompleteItem[] = [];
+  for (const ll of sharedIndex2().linkLocations()) {
+    if (ll.type !== LinkType.PERSON) { continue; }
+    const name = ll.link.linkName();
+    if (visited.has(name)) { continue; }
+    visited.add(name);
+    items.push(new AutocompleteItem(name, AutocompleteType.PERSON));
+  }
+  return items;
+}
 
 export class AutocompleteItem {
   constructor(public text: string, public type: AutocompleteType, public completion: string = text) { }
@@ -86,6 +136,7 @@ export class AutocompleteItem {
 export enum AutocompleteType {
   LINK,
   HREF,
+  PERSON,
   HASHTAG,
   HEADER,
   STATIC,
@@ -95,6 +146,7 @@ export enum AutocompleteType {
 const AcData = {
   [AutocompleteType.LINK]: { prefix: '[[', suffix: ']]', type: vscode.CompletionItemKind.Text },
   [AutocompleteType.HREF]: { prefix: '[[', suffix: ']]', type: vscode.CompletionItemKind.Text },
+  [AutocompleteType.PERSON]: { prefix: '@[', suffix: ']', type: vscode.CompletionItemKind.Text },
   [AutocompleteType.HASHTAG]: { prefix: '#', suffix: '', type: vscode.CompletionItemKind.Unit },
   [AutocompleteType.HEADER]: { prefix: '', suffix: '', type: vscode.CompletionItemKind.Folder },
   [AutocompleteType.STATIC]: { prefix: '', suffix: '', type: vscode.CompletionItemKind.Constructor },
@@ -105,6 +157,8 @@ const linkTypeToAutocompleteType = (lt: LinkType): AutocompleteType => {
   switch (lt) {
     case LinkType.LINK:
       return AutocompleteType.LINK;
+    case LinkType.PERSON:
+      return AutocompleteType.PERSON;
     case LinkType.HREF:
       return AutocompleteType.HREF;
     case LinkType.HASHTAG:

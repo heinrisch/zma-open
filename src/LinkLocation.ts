@@ -38,15 +38,9 @@ export enum LinkType {
   LINK,
   HREF,
   HASHTAG,
-  HEADING
+  HEADING,
+  PERSON
 }
-
-export const LinkTypeData = {
-  [LinkType.LINK]: { name: 'link' },
-  [LinkType.HREF]: { name: 'href' },
-  [LinkType.HASHTAG]: { name: 'hashtag' },
-  [LinkType.HEADING]: { name: 'heading' }
-};
 
 export function parseDate(dateString: string): Date | null {
   const regex = /^\d{4}-\d{2}-\d{2}$/;

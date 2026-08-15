@@ -366,7 +366,7 @@ async function preprocessMdFile(fileContent: string, filePath: string): Promise<
   return editedFileContent;
 }
 
-export async function processMdFile(fileContent: string, filePath: string): Promise<ZmaFile> {
+export function processMdFile(fileContent: string, filePath: string): ZmaFile {
   const link = Link.fromFilePath(filePath);
   const zmaFile = new ZmaFile(link, fileContent);
 
@@ -374,6 +374,13 @@ export async function processMdFile(fileContent: string, filePath: string): Prom
   linkMatches.forEach(match => {
     const rawLink = match.fullMatch.replace(/\[\[|\]\]/g, '').trim();
     const ll = LinkLocation.create(fileContent, Link.fromRawLink(rawLink), link, match.row, match.column, LinkType.LINK);
+    zmaFile.linkLocations.push(ll);
+  });
+
+  const personMatches = regexMatches(RegexPatterns.RE_PERSON(), fileContent);
+  personMatches.forEach(match =>{
+    const fullName = match.fullMatch.replace(/\[|\]|\@/g, '').trim();
+    const ll = LinkLocation.create(fileContent, Link.fromRawLink(fullName), link, match.row, match.column, LinkType.PERSON);
     zmaFile.linkLocations.push(ll);
   });
 
