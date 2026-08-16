@@ -8,7 +8,7 @@ const Document_Selector_Markdown: DocumentSelector = [
   { language: 'markdown', scheme: 'untitled' },
 ];
 
-const SYMBOL_TYPES = [LinkType.LINK, LinkType.PERSON, LinkType.HREF];
+const SYMBOL_TYPES = [LinkType.LINK, LinkType.PERSON, LinkType.DATE, LinkType.HREF];
 
 export function activateDocumentSymbolProvider(context: ExtensionContext) {
   context.subscriptions.push(

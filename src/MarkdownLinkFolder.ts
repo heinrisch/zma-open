@@ -181,6 +181,19 @@ export class MarkdownInlineUrlFold implements vscode.Disposable {
                     addColored(this.getLinkColor(ll.link.linkName()), new vscode.Range(doc.positionAt(openBracketEnd), doc.positionAt(closeBracketStart)));
                     break;
                 }
+                case LinkType.DATE: {
+                    // ![date]: show the ! and brackets dimly, color the date
+                    const openBracketStart = startOffset; // The !
+                    const openBracketEnd = startOffset + 2; // After ![
+                    const closeBracketStart = text.indexOf(']', openBracketEnd);
+                    const closeBracketEnd = closeBracketStart + 1;
+
+                    weak.push({ range: new vscode.Range(doc.positionAt(openBracketStart), doc.positionAt(openBracketEnd)) });
+                    weak.push({ range: new vscode.Range(doc.positionAt(closeBracketStart), doc.positionAt(closeBracketEnd)) });
+
+                    addColored(this.getLinkColor(ll.link.linkName()), new vscode.Range(doc.positionAt(openBracketEnd), doc.positionAt(closeBracketStart)));
+                    break;
+                }
                 // HASHTAG and HEADING links are left as-is
             }
         }

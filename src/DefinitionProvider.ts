@@ -26,7 +26,7 @@ class MarkdownDefinitionProvider implements vscode.DefinitionProvider {
       const zmaFile = processMdFile(text, document.uri.path);
 
       const atCursor = findLinkAtCursor(zmaFile.linkLocations, document, position,
-        [LinkType.LINK, LinkType.PERSON, LinkType.HREF]);
+        [LinkType.LINK, LinkType.PERSON, LinkType.DATE, LinkType.HREF]);
 
       if (!atCursor) {
         reject();

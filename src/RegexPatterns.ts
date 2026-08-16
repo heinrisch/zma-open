@@ -2,6 +2,10 @@ export class RegexPatterns {
   static RE_SHORTENED_HREF = () => RegExp(/\[[^\]]+\]\(([a-zA-Z0-9]+)\)/gm);
   static RE_LINKS = () => RegExp(/\[\[([^\]]+)\]\]/gm);
   static RE_PERSON = () => RegExp(/@\[[^\[\]]+\]/g);
+  // Date mentions use ![date]. The content is a year, optionally followed by
+  // -MM, -MM-DD, -q[1-4] or -h[12]. The (?!\() keeps markdown images
+  // (![alt](url)) from being mistaken for dates.
+  static RE_DATE = () => RegExp(/!\[(\d{4}(?:-\d{2}(?:-\d{2})?|-[qQ][1-4]|-[hH][12])?)\](?!\()/g);
   static RE_HREF = () => RegExp(/\[([^[]+)\]\(([^)]*)\)/gm);
   static RE_HASHTAG = () => RegExp(/(?:^|\s)(#[\w/-]+)/gm);
   static RE_HEADING = () => RegExp(/^(## .+$)/gm);

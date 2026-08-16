@@ -384,6 +384,13 @@ export function processMdFile(fileContent: string, filePath: string): ZmaFile {
     zmaFile.linkLocations.push(ll);
   });
 
+  const dateMatches = regexMatches(RegexPatterns.RE_DATE(), fileContent);
+  dateMatches.forEach(match =>{
+    const date = match.groups[0];
+    const ll = LinkLocation.create(fileContent, Link.fromRawLink(date), link, match.row, match.column, LinkType.DATE);
+    zmaFile.linkLocations.push(ll);
+  });
+
   const hrefMatches = regexMatches(RegexPatterns.RE_HREF(), fileContent);
   hrefMatches.forEach(match => {
     const [title, url] = match.groups;

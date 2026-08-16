@@ -44,6 +44,30 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
     personReplaceStart = lastAt + 1;
   }
 
+  // Date mentions use ![date]. Same idea as persons: when the cursor is inside
+  // or right after a ! / ![ prefix, only match dates and fill in the date.
+  const bangIndex = textBefore.lastIndexOf('![');
+  const inDateBrackets = bangIndex !== -1 && textBefore.indexOf(']', bangIndex) === -1;
+  const lastBang = textBefore.lastIndexOf('!');
+  // Bare "!name" only (the "!" is not followed by "["), so markdown images
+  // (![alt](url)) don't trigger date completion.
+  const justTypedBang = lastBang !== -1 && textBefore.slice(lastBang).match(/^![^\[ ]*$/) !== null;
+
+  let isDateSearch = false;
+  let dateSearch = text;
+  let dateReplaceStart = -1;
+  let dateInsideBrackets = false;
+  if (inDateBrackets && isDatePrefix(textBefore.slice(bangIndex + 2))) {
+    isDateSearch = true;
+    dateInsideBrackets = true;
+    dateSearch = textBefore.slice(bangIndex + 2);
+    dateReplaceStart = bangIndex + 2;
+  } else if (justTypedBang) {
+    isDateSearch = true;
+    dateSearch = textBefore.slice(lastBang + 1);
+    dateReplaceStart = lastBang + 1;
+  }
+
   const openBracketsCount = (textBefore.match(/\[/g) || []).length;
   const closeBracketsCount = (textBefore.match(/\]/g) || []).length;
 
@@ -53,12 +77,16 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
 
   const dayLimit = 14;
 
-  const top50completion: [AutocompleteItem, number[]][] = (isPersonSearch ? personItems() : sharedIndex2().autoCompleteItems())
+  const searchText = isPersonSearch ? personSearch : (isDateSearch ? dateSearch : text);
+  const sourceItems = isPersonSearch ? personItems() : (isDateSearch ? dateItems() : sharedIndex2().autoCompleteItems());
+
+  const top50completion: [AutocompleteItem, number[]][] = sourceItems
     .filter((a: AutocompleteItem): boolean => {
       if (isPersonSearch) { return a.type === AutocompleteType.PERSON; }
+      if (isDateSearch) { return a.type === AutocompleteType.DATE; }
       return suggestHeader ? a.type === AutocompleteType.HEADER : a.type !== AutocompleteType.HEADER;
     })
-    .map((a): [AutocompleteItem, number] => [a, ScoringUtils.matchScore(isPersonSearch ? personSearch : text, a.text)])
+    .map((a): [AutocompleteItem, number] => [a, ScoringUtils.matchScore(searchText, a.text)])
     .filter(([, score]) => score >= ScoringUtils.minScore)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 50)
@@ -87,7 +115,7 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
       const item: CompletionItem = {
         label: a.text + ` (${score[0].toFixed(2)} [${score.slice(1, score.length).map(s => s.toFixed(2)).join(', ')}])`,
         insertText: insert,
-        filterText: isPersonSearch ? personSearch : text, // Was toAutocompleteString(a.text). Trying to override vscode's own filtering
+        filterText: searchText, // Was toAutocompleteString(a.text). Trying to override vscode's own filtering
         kind: AcData[a.type].type,
         sortText: String(index + 1).padStart(2, '0'),
       };
@@ -96,6 +124,10 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
         // Replace exactly the typed name so the leading @ / @[ isn't duplicated.
         item.range = new vscode.Range(position.line, personReplaceStart, position.line, position.character);
         item.insertText = personInsideBrackets ? a.completion : `[${a.completion}]`;
+      } else if (isDateSearch) {
+        // Replace exactly the typed date so the leading ! / ![ isn't duplicated.
+        item.range = new vscode.Range(position.line, dateReplaceStart, position.line, position.character);
+        item.insertText = dateInsideBrackets ? a.completion : `[${a.completion}]`;
       }
 
       return item;
@@ -103,6 +135,13 @@ export const sharedAutocomplete = (document: vscode.TextDocument, position: vsco
 
   return completionItems;
 };
+
+function isDatePrefix(s: string): boolean {
+  // A plausible partial date: "" / "202" / "2026" / "2026-08" / "2026-08-1" /
+  // "2026-q" / "2026-q3" / "2026-h1". Keeps markdown images (![alt](url)) from
+  // being treated as date mentions.
+  return /^\d{0,4}(?:-\d{0,2}(?:-\d{0,2})?|-[qQ][0-4]?|-[hH][0-2]?)?$/.test(s);
+}
 
 function personItems(): AutocompleteItem[] {
   // People who have been mentioned with @[name], deduped by name. Built from
@@ -116,6 +155,28 @@ function personItems(): AutocompleteItem[] {
     if (visited.has(name)) { continue; }
     visited.add(name);
     items.push(new AutocompleteItem(name, AutocompleteType.PERSON));
+  }
+  return items;
+}
+
+function dateItems(): AutocompleteItem[] {
+  // Dates mentioned with ![date], deduped by date, plus the relative date
+  // shortcuts (Today, Yesterday, quarters, halves, ...). Built from
+  // linkLocations directly so a date that is also a regular link isn't dropped
+  // by the type-agnostic dedup in buildAutocompleteItems.
+  const visited = new Set<string>();
+  const items: AutocompleteItem[] = [];
+  for (const ll of sharedIndex2().linkLocations()) {
+    if (ll.type !== LinkType.DATE) { continue; }
+    const date = ll.link.linkName();
+    if (visited.has(date)) { continue; }
+    visited.add(date);
+    items.push(new AutocompleteItem(date, AutocompleteType.DATE));
+  }
+  for (const item of dateStatics()) {
+    if (visited.has(item.completion)) { continue; }
+    visited.add(item.completion);
+    items.push(item);
   }
   return items;
 }
@@ -145,7 +206,7 @@ const AcData = {
   [AutocompleteType.HASHTAG]: { prefix: '#', suffix: '', type: vscode.CompletionItemKind.Unit },
   [AutocompleteType.HEADER]: { prefix: '', suffix: '', type: vscode.CompletionItemKind.Folder },
   [AutocompleteType.STATIC]: { prefix: '', suffix: '', type: vscode.CompletionItemKind.Constructor },
-  [AutocompleteType.DATE]: { prefix: '[[', suffix: ']]', type: vscode.CompletionItemKind.Event }
+  [AutocompleteType.DATE]: { prefix: '![', suffix: ']', type: vscode.CompletionItemKind.Event }
 };
 
 const linkTypeToAutocompleteType = (lt: LinkType): AutocompleteType => {
@@ -154,6 +215,8 @@ const linkTypeToAutocompleteType = (lt: LinkType): AutocompleteType => {
       return AutocompleteType.LINK;
     case LinkType.PERSON:
       return AutocompleteType.PERSON;
+    case LinkType.DATE:
+      return AutocompleteType.DATE;
     case LinkType.HREF:
       return AutocompleteType.HREF;
     case LinkType.HASHTAG:
@@ -182,7 +245,7 @@ export const buildAutocompleteItems = (index: Index2): AutocompleteItem[] => {
   return items;
 };
 
-function autocompleteStatics(): AutocompleteItem[] {
+function dateStatics(): AutocompleteItem[] {
   const statics: AutocompleteItem[] = [];
 
   const todayString = new Date().toISOString().slice(0, 10);
@@ -237,6 +300,24 @@ function autocompleteStatics(): AutocompleteItem[] {
     const month = formatterMonth.format(d);
     statics.push(new AutocompleteItem(month, AutocompleteType.DATE, d_month));
   });
+
+  // Quarters, halves and years
+  const currentYear = new Date().getFullYear();
+  for (let year = currentYear - 2; year <= currentYear + 2; year++) {
+    statics.push(new AutocompleteItem(`${year}`, AutocompleteType.DATE, `${year}`));
+    for (let q = 1; q <= 4; q++) {
+      statics.push(new AutocompleteItem(`Q${q} ${year}`, AutocompleteType.DATE, `${year}-q${q}`));
+    }
+    for (let h = 1; h <= 2; h++) {
+      statics.push(new AutocompleteItem(`H${h} ${year}`, AutocompleteType.DATE, `${year}-h${h}`));
+    }
+  }
+
+  return statics;
+}
+
+function autocompleteStatics(): AutocompleteItem[] {
+  const statics = dateStatics();
 
   statics.push(new AutocompleteItem('TODO', AutocompleteType.STATIC));
   statics.push(new AutocompleteItem('DOING', AutocompleteType.STATIC));

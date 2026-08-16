@@ -3,11 +3,11 @@ import { processMdFile, sharedIndex2 } from './Index2';
 import { Link } from './Link';
 import { findLinkAtCursor, LinkType } from './LinkLocation';
 
-const RENAME_TYPES = [LinkType.LINK, LinkType.PERSON, LinkType.HREF];
+const RENAME_TYPES = [LinkType.LINK, LinkType.PERSON, LinkType.DATE, LinkType.HREF];
 
 // Column offset of the name (inside the brackets) from the link's start column.
 function namePrefixColumn(type: LinkType): number {
-    return type === LinkType.HREF ? 1 : 2; // [name](url) vs [[name]] / @[name]
+    return type === LinkType.HREF ? 1 : 2; // [name](url) vs [[name]] / @[name] / ![date]
 }
 
 export function activateRenameProvider(context: vscode.ExtensionContext) {

@@ -39,7 +39,8 @@ export enum LinkType {
   HREF,
   HASHTAG,
   HEADING,
-  PERSON
+  PERSON,
+  DATE
 }
 
 export function parseDate(dateString: string): Date | null {
@@ -143,6 +144,8 @@ export function linkEndOffset(ll: LinkLocation, text: string, start: number): nu
     case LinkType.LINK: // [[text]]
       return text.indexOf(']]', start + 2) + 2;
     case LinkType.PERSON: // @[text]
+      return text.indexOf(']', start + 2) + 1;
+    case LinkType.DATE: // ![date]
       return text.indexOf(']', start + 2) + 1;
     case LinkType.HREF: { // [text](url)
       const urlStart = text.indexOf('](', start + 1);

@@ -54,6 +54,7 @@ class MarkdownDocumentFormatter implements vscode.DocumentFormattingEditProvider
         lineModified = await this.singleSpaceAfterBullet(i, line, workingDoc) || lineModified;
         lineModified = await this.fixHrefBrackets(i, line, workingDoc) || lineModified;
         lineModified = await this.fixPersonBrackets(i, line, workingDoc) || lineModified;
+        lineModified = await this.fixDateBrackets(i, line, workingDoc) || lineModified;
         lineModified = await this.fixLinkBrackets(i, line, workingDoc) || lineModified;
         lineModified = await this.trimLinkText(i, line, workingDoc) || lineModified;
         lineModified = await this.removeEmptyBullets(i, line, workingDoc) || lineModified;
@@ -367,6 +368,40 @@ class MarkdownDocumentFormatter implements vscode.DocumentFormattingEditProvider
 
       if (match[0] !== newText) {
         outputChannel.appendLine(`  Line ${lineNumber + 1}: Fixing person brackets "${match[0]}" -> "${newText}"`);
+        const wasModified = this.applyEdit(workingDoc, lineNumber, start, lineNumber, end, newText);
+        modified = modified || wasModified;
+
+        // Update search context after modification
+        const lines = workingDoc.text.split('\n');
+        if (lineNumber < lines.length) {
+          searchText = lines[lineNumber];
+          offset = 0;
+          regex.lastIndex = 0; // Reset regex to search from beginning with updated text
+        } else {
+          break;
+        }
+      }
+    }
+
+    return modified;
+  }
+
+  async fixDateBrackets(lineNumber: number, line: string, workingDoc: { text: string }): Promise<boolean> {
+    // Normalize ![[date]], ![date]], ![[date] to the canonical ![date]. A date
+    // mention never has double brackets.
+    const regex = /!\[+([^\[\]]+)\]+/g;
+    let match;
+    let modified = false;
+    let searchText = line;
+    let offset = 0;
+
+    while ((match = regex.exec(searchText)) !== null) {
+      const start = match.index + offset;
+      const end = start + match[0].length;
+      const newText = `![${match[1]}]`;
+
+      if (match[0] !== newText) {
+        outputChannel.appendLine(`  Line ${lineNumber + 1}: Fixing date brackets "${match[0]}" -> "${newText}"`);
         const wasModified = this.applyEdit(workingDoc, lineNumber, start, lineNumber, end, newText);
         modified = modified || wasModified;
 
