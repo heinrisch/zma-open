@@ -6,7 +6,7 @@
 # ]
 # ///
 
-import os
+import shutil
 import random
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -15,130 +15,207 @@ from tqdm import tqdm
 
 fake = Faker()
 
+# Seed so the sample vault is reproducible (remove for a fresh vault each run).
+Faker.seed(42)
+random.seed(42)
+
 # Configuration
 VAULT_DIR = Path("sample_vault")
 PAGES_DIR = VAULT_DIR / "pages"
 NUM_YEARS = 3
 DAYS_AGO = NUM_YEARS * 365
 START_DATE = datetime.now() - timedelta(days=DAYS_AGO)
-TOTAL_PAGES = 5000 # Reduced from 20000
+TOTAL_PAGES = 5000
 
-TAGS = ["work", "personal", "idea", "meeting", "project", "archive", "todo", "done"]
-EXT_LINKS = ["https://google.com", "https://github.com", "https://wikipedia.org", "https://openai.com", "https://vscode.dev"]
+NUM_PEOPLE = 60
+NUM_PROJECTS = 40
 
-def generate_bullet_content(all_page_names, depth=0):
-    """Generates random bulleted content with links, tags, and tasks."""
+TAGS = [
+    "work", "personal", "idea", "meeting", "project",
+    "archive", "todo", "done", "reading", "health", "travel",
+]
+EXT_LINKS = [
+    "https://google.com",
+    "https://github.com",
+    "https://wikipedia.org",
+    "https://openai.com",
+    "https://vscode.dev",
+    "https://news.ycombinator.com",
+    "https://stackoverflow.com",
+]
+TASK_STATUSES = ["TODO", "DOING", "DONE"]
+TASK_CATEGORIES = ["urgent", "later", "maybe", "waiting", "blocked"]
+
+# Filenames map '/' to '___' and drop apostrophes in this vault's Link model,
+# so keep generated names free of both to stay consistent with file paths.
+def sanitize_name(name: str) -> str:
+    return name.replace("/", "-").replace("'", "").strip()
+
+
+def make_people(count: int) -> list[str]:
+    people: set[str] = set()
+    while len(people) < count:
+        people.add(sanitize_name(fake.name()))
+    return sorted(people)
+
+
+def make_projects(count: int) -> list[str]:
+    projects: set[str] = set()
+    while len(projects) < count:
+        projects.add(sanitize_name(fake.bs().title()))
+    return sorted(projects)
+
+
+def make_topics(count: int) -> list[str]:
+    topics: set[str] = set()
+    while len(topics) < count:
+        topics.add(f"{fake.word().capitalize()} {fake.word().capitalize()}")
+    return sorted(topics)
+
+
+def make_heading(people: list[str], link_targets: list[str]) -> str:
+    roll = random.random()
+    if roll < 0.20:
+        return f"## Meeting with @[{random.choice(people)}]"
+    if roll < 0.40:
+        return f"## {fake.sentence(nb_words=random.randint(3, 5)).strip('.')}"
+    if roll < 0.55:
+        return f"## Project: [[{random.choice(link_targets)}]]"
+    if roll < 0.70:
+        return f"## {fake.word().capitalize()} Notes"
+    return f"## {fake.sentence(nb_words=3).strip('.')}"
+
+
+def generate_bullet(link_targets: list[str], people: list[str], depth: int = 0) -> list[str]:
+    """A bullet of prose plus links, person mentions, hashtags, and a task."""
     indent = "  " * depth
-    p = fake.sentence(nb_words=random.randint(5, 12)).strip('.')
-    
-    # Inject WikiLinks (Reduced probability from 0.4 to 0.1)
-    if random.random() > 0.9:
-        link_target = random.choice(all_page_names)
-        p += f" [[{link_target}]]"
-    
-    # Inject External Links
-    if random.random() > 0.9:
-        p += f" [{fake.word()}]({random.choice(EXT_LINKS)})"
-    
-    # Inject Hashtags (sometimes nested)
-    if random.random() > 0.8:
+
+    sentence = fake.sentence(nb_words=random.randint(4, 10)).strip(".")
+
+    refs: list[str] = []
+    if random.random() < 0.22:
+        refs.append(f"@[{random.choice(people)}]")
+    if random.random() < 0.28:
+        refs.append(f"[[{random.choice(link_targets)}]]")
+    if random.random() < 0.07:
+        refs.append(f"[{fake.word()}]({random.choice(EXT_LINKS)})")
+    if random.random() < 0.18:
         tag = random.choice(TAGS)
-        if random.random() > 0.5:
+        if random.random() < 0.35:
             tag += f"/{fake.word()}"
-        p += f" #{tag}"
-        
-    line = f"{indent}- {p}"
-    
-    # Randomly change to a task
-    if random.random() > 0.8:
-        status = random.choice(["TODO", "DOING", "DONE"])
-        if random.random() > 0.7:
-            status += f"/{random.choice(['urgent', 'later', 'maybe'])}"
-        line = f"{indent}- {status} {p}"
+        refs.append(f"#{tag}")
+
+    text = " ".join([sentence] + refs)
+
+    if random.random() < 0.25:
+        status = random.choice(TASK_STATUSES)
+        if random.random() < 0.5:
+            status += f"/{random.choice(TASK_CATEGORIES)}"
+        line = f"{indent}- {status} {text}"
+    else:
+        line = f"{indent}- {text}"
 
     content = [line]
-    
-    # Randomly add sub-bullets
-    if depth < 2 and random.random() > 0.6:
-        num_sub = random.randint(1, 3)
-        for _ in range(num_sub):
-            content.extend(generate_bullet_content(all_page_names, depth + 1))
-            
+
+    if depth < 2 and random.random() < 0.5:
+        for _ in range(random.randint(1, 3)):
+            content.extend(generate_bullet(link_targets, people, depth + 1))
+
     return content
 
-def generate_note_content(all_page_names):
-    """Generates a full note content structure."""
-    content = []
-    
-    # Tags metadata
-    if random.random() > 0.8:
-        selected_tags = random.sample(TAGS, random.randint(1, 2))
-        content.append(f"tags:: {', '.join(selected_tags)}")
+
+def generate_note_content(link_targets: list[str], people: list[str]) -> str:
+    """A general page: tags header, one or two headed sections, maybe an alias."""
+    content: list[str] = []
+
+    if random.random() < 0.6:
+        selected = random.sample(TAGS, random.randint(1, 3))
+        content.append(f"tags:: {', '.join(selected)}")
         content.append("")
 
-    # Random Header
-    if random.random() > 0.6:
-        content.append(f"## {fake.sentence(nb_words=4).strip('.')}")
+    for _ in range(random.randint(1, 2)):
+        content.append(make_heading(people, link_targets))
         content.append("")
-    
-    # Bullet points
-    num_blocks = random.randint(2, 5) # Fewer blocks
-    for _ in range(num_blocks):
-        content.extend(generate_bullet_content(all_page_names))
-        if random.random() > 0.8: # Random spacers
-            content.append("")
+        for _ in range(random.randint(1, 3)):
+            content.extend(generate_bullet(link_targets, people))
+        content.append("")
 
-    # Random Alias (at the end)
-    if random.random() > 0.95:
-        alias_name = fake.word().capitalize() + "Alias"
-        target = random.choice(all_page_names)
-        content.append(f"\n[[{alias_name}]] = [[{target}]]")
+    # Aliases often point a short name at a person or project.
+    if random.random() < 0.1:
+        person = random.choice(people)
+        first = person.split()[0]
+        content.append(f"[[{first}]] = [[{person}]]")
 
     return "\n".join(content)
 
-def main():
+
+def generate_daily_note_content(date_str: str, link_targets: list[str], people: list[str]) -> str:
+    """A date-stamped daily note: journal bullets plus a likely meeting block."""
+    content: list[str] = []
+
+    content.append(f"tags:: {random.choice(['daily', 'journal', 'work'])}")
+    content.append("")
+
+    content.append("## Journal")
+    content.append("")
+    for _ in range(random.randint(2, 4)):
+        content.extend(generate_bullet(link_targets, people))
+    content.append("")
+
+    if random.random() < 0.7:
+        person = random.choice(people)
+        content.append(f"## Meeting with @[{person}]")
+        content.append("")
+        for _ in range(random.randint(1, 3)):
+            content.extend(generate_bullet(link_targets, people))
+
+    return "\n".join(content)
+
+
+def main() -> None:
     if VAULT_DIR.exists():
-        import shutil
         shutil.rmtree(VAULT_DIR)
-    
+
     VAULT_DIR.mkdir()
     PAGES_DIR.mkdir()
 
     print(f"Generating improved sample vault in {VAULT_DIR.absolute()}...")
 
-    # Daily note names (Weekdays only)
-    daily_note_names = []
+    # Daily note names (weekdays only)
+    daily_note_names: list[str] = []
     for i in range(DAYS_AGO):
-        date = START_DATE + timedelta(days=i)
-        if date.weekday() < 5: # 0-4 are Monday-Friday
-            daily_note_names.append(date.strftime("%Y-%m-%d"))
+        d = START_DATE + timedelta(days=i)
+        if d.weekday() < 5:  # 0-4 are Monday-Friday
+            daily_note_names.append(d.strftime("%Y-%m-%d"))
 
     num_daily = len(daily_note_names)
-    num_general = max(0, TOTAL_PAGES - num_daily)
+    num_general = TOTAL_PAGES - num_daily
 
-    # Pre-generate page names for linking
-    page_names = []
-    for i in range(num_general):
-        name = fake.word().capitalize()
-        page_names.append(f"{name}{i}")
-    
-    all_names = page_names + daily_note_names
+    people = make_people(NUM_PEOPLE)
+    projects = make_projects(NUM_PROJECTS)
+    topics = make_topics(max(0, num_general - len(people) - len(projects)))
 
-    # Create General Pages
-    print(f"Creating {num_general} general notes in pages/...")
-    for name in tqdm(page_names):
-        note_path = PAGES_DIR / f"{name}.md"
-        with open(note_path, "w") as f:
-            f.write(generate_note_content(all_names))
+    general_names = sorted(set(people) | set(projects) | set(topics))
+    all_names = general_names + daily_note_names
 
-    # Create Daily Notes
+    # Create general pages
+    print(f"Creating {len(general_names)} general notes in pages/...")
+    for name in tqdm(general_names):
+        with open(PAGES_DIR / f"{name}.md", "w") as f:
+            f.write(generate_note_content(all_names, people))
+
+    # Create daily notes
     print(f"Creating {num_daily} daily notes in pages/...")
     for name in tqdm(daily_note_names):
-        note_path = PAGES_DIR / f"{name}.md"
-        with open(note_path, "w") as f:
-            f.write(generate_note_content(all_names))
+        with open(PAGES_DIR / f"{name}.md", "w") as f:
+            f.write(generate_daily_note_content(name, all_names, people))
 
-    print(f"Done! Generated {len(all_names)} files.")
+    print(
+        f"Done! Generated {len(all_names)} files "
+        f"({len(people)} people, {len(projects)} projects, "
+        f"{len(topics)} topics, {num_daily} daily notes)."
+    )
+
 
 if __name__ == "__main__":
     main()
